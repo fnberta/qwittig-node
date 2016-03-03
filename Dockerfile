@@ -1,24 +1,54 @@
-FROM google/debian:wheezy
+FROM ubuntu:14.04
 
-RUN apt-get update -y && apt-get install --no-install-recommends -y -q  \
-curl \
-python \ 
-build-essential \ 
-git \ 
-ca-certificates
+RUN \
+    apt-get update -y && apt-get install --no-install-recommends -y -q  \
+    curl \
+    python \ 
+    build-essential \ 
+    ca-certificates \
+    cmake \
+    pkg-config \
+    libjpeg8-dev \
+    libtiff4-dev \
+    libjasper-dev \
+    libpng12-dev \
+    python-dev \
+    python-numpy \
+    python3.4-dev \
+    python3-numpy \
+    git \
+    wget \
+    unzip \
+    tesseract-ocr \
+    tesseract-ocr-deu
+   
+## Install OpenCV 
+WORKDIR /opt/opencv
+RUN wget https://github.com/Itseez/opencv/archive/3.0.0.zip
+RUN unzip 3.0.0.zip
+  
+WORKDIR /opt/opencv/opencv-3.0.0
+RUN \
+    mkdir build \
+    cd build \
+    cmake .. \
+    make \
+    make install \
+    make clean
+
+RUN sh -c 'echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf'
+RUN ldconfig 
+
+## Install Node.js    
 RUN curl --silent --location https://deb.nodesource.com/setup_0.12 | bash -
 RUN apt-get install --yes nodejs
 
-WORKDIR /app
-ONBUILD ADD package.json /app/
-ONBUILD RUN npm install
-ONBUILD ADD . /app
+WORKDIR /opt/node
+COPY package.json /opt/node/
+RUN npm install
+COPY . /opt/node
 
-EXPOSE 8080
+EXPOSE 3000
 CMD [ "npm", "start" ]
-
-
-
-
 
 

@@ -5,20 +5,22 @@ var request = Promise.promisifyAll(require('request'));
 var fs = require('fs');
 Promise.promisifyAll(fs);
 var execFileAsync = Promise.promisify(require('child_process').execFile);
+var path = require('path');
 
 router.route('/receipt')
-    .post(function(req, res, next) {
+    .post(function (req, res, next) {
         req.socket.setTimeout(0);
-        //res.setTimeout(0);
 
         var sessionToken = req.body.sessionToken;
         var receipt = req.files.receipt;
 
         validateSessionToken(sessionToken).then(function () {
             return performOcr(receipt);
-        }).then(function (result) {
+        })
+        .then(function (result) {
             res.json(result);
-        }).catch(function (e) {
+        })
+        .catch(function (e) {
             next(e);
         });
     });
@@ -32,7 +34,8 @@ function validateSessionToken(sessionToken) {
             'X-Parse-REST-API-Key': '6YNWJ2WjkHpNeMQ240CGxt9t8EzG7WKlAOqokpFG',
             'X-Parse-Session-Token': sessionToken
         }
-    }).spread(function (response, body) {
+    })
+    .spread(function (response, body) {
         var statusCode = response.statusCode;
         if (statusCode != 200) {
             var parseResponse = JSON.parse(body);
@@ -45,21 +48,22 @@ function validateSessionToken(sessionToken) {
 }
 
 function performOcr(receipt) {
-    var imagePath = '../' + receipt.path;
-    var jsonPath = './ocr/' + receipt.name;
+    var imagePath = path.resolve(process.cwd(), receipt.path);
 
-    var matlabExec = '/Applications/MATLAB_R2014b.app/bin/matlab';
-    var matlabArgs = ['-nojvm', '-r "try, qScan(\'' + imagePath + '\'); end, quit"'];
+    var exec = '/home/node/qscan/Python-Code/Run2.py';
+    var args = [imagePath];
 
-    return execFileAsync(matlabExec, matlabArgs, {cwd: './ocr'}).spread(function (stdout, stderr) {
-        var jsonOutput = removeExtension(jsonPath) + '-matlab.json';
+    return execFileAsync(exec, args, {cwd: '/home/node/qscan/Python-Code/'})
+    .spread(function (stdout, stderr) {
+        var jsonOutput = removeExtension(imagePath) + '.json';
         return fs.readFileAsync(jsonOutput, 'utf8');
-    }).then(function (data) {
+    })
+    .then(function (data) {
         return JSON.parse(data);
     });
 }
 
-function removeExtension(filename){
+function removeExtension(filename) {
     var lastDotPosition = filename.lastIndexOf(".");
     if (lastDotPosition === -1) {
         return filename;
