@@ -1,6 +1,6 @@
 var ParseServer = require('parse-server').ParseServer;
 var parseApi = new ParseServer({
-    databaseURI: 'mongodb://parse:12345678@localhost:27017/qwittig?authSource=admin',
+    databaseURI: 'mongodb://parse:phusPAJ4drufuka4haye@localhost:27017/qwittig',
     cloud: __dirname + '/cloudcode/main.js',
     appId: 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji',
     masterKey: 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK',
@@ -22,7 +22,13 @@ var parseApi = new ParseServer({
                 production: true
             }
         ]
+    },
+    oauth: {
+        facebook: {
+            appIds: '483474338502548'
+        }
     }
+
 });
 
 module.exports = parseApi;

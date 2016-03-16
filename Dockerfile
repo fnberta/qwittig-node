@@ -37,11 +37,16 @@ RUN \
     make clean
 
 RUN sh -c 'echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf'
-RUN ldconfig 
+RUN ldconfig
+
+## Install MongoDb
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
+RUN echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.2 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.2.list
+RUN apt-get update && apt-get install -y mongodb-org
 
 ## Install Node.js    
 RUN curl --silent --location https://deb.nodesource.com/setup_0.12 | bash -
-RUN apt-get install --yes nodejs
+RUN apt-get install -y nodejs
 
 WORKDIR /opt/node
 COPY package.json /opt/node/

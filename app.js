@@ -3,10 +3,9 @@ var path = require('path');
 var logger = require('morgan');
 var bodyParser = require('body-parser');
 var multer = require('multer');
-var upload = multer({dest: path.join(__dirname, 'uploads')});
 
 var ocr = require('./routes/ocr');
-var apple = require('./routes/apple');
+var apple = require('./routes/apple/apple');
 var parse = require('./routes/parse/parse');
 
 var app = express();
@@ -19,6 +18,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', apple);
 app.use('/api', ocr);
 app.use('/api/data', parse);
+
 
 // catch and handle parse.com errors
 app.use(function (err, req, res, next) {
@@ -33,7 +33,6 @@ app.use(function (err, req, res, next) {
 app.use(function (req, res, next) {
     var err = new Error('Not Found');
     err.status = 404;
-    console.trace(err);
     next(err);
 });
 

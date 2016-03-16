@@ -5,18 +5,71 @@
 var _ = require('underscore');
 var Fraction = require('fraction.js');
 
-
 Parse.Cloud.afterSave(Parse.User, function (request) {
     var user = request.object;
     if (user.existed()) {
-        return;
+        checkArchivedIdentities(user, request.original);
+    } else {
+        setAcl(user)
     }
 
-    // read/write only for the user himself
-    var acl = new Parse.ACL(user);
-    acl.setPublicReadAccess(false);
-    user.setACL(acl);
-    user.save(null, {useMasterKey: true})
+    function checkArchivedIdentities(user, oldUser) {
+        var archivedIdentities = user.get("archivedIdentities");
+        if (archivedIdentities.length == 0) {
+            return;
+        }
+
+        var oldArchived = oldUser.get("archivedIdentities");
+        if (oldArchived == null) {
+            oldArchived = []
+        }
+        if (archivedIdentities.length > oldArchived.length) {
+            var newArchivedIds = getIdsFromObjects(archivedIdentities);
+            var oldArchivedIds = getIdsFromObjects(oldArchived);
+            var newlyArchivedIds = _.difference(newArchivedIds, oldArchivedIds);
+            _.each(newlyArchivedIds, function (identityId) {
+                var Identity = Parse.Object.extend("Identity");
+                var identity = new Identity();
+                identity.id = identityId;
+                identity.fetch({useMasterKey: true})
+                    .then(function (identity) {
+                        var group = identity.get("group");
+                        var nickname = identity.get("nickname");
+                        return sendPushUserLeftGroup(group, nickname)
+                            .then(function () {
+                                // group beforeDelete handler will make sure that group only gets deleted if it contains no
+                                // active identities
+                                return group.destroy({useMasterKey: true})
+                            });
+                    });
+            });
+        }
+    }
+
+    function sendPushUserLeftGroup(group, nickname) {
+        return group.fetch({useMasterKey: true})
+            .then(function (group) {
+                var groupName = group.get("name");
+                return Parse.Push.send({
+                    channels: [group.id],
+                    data: {
+                        type: "userLeft",
+                        "content-available": 1,
+                        groupId: group.id,
+                        user: nickname,
+                        groupName: groupName
+                    }
+                }, {useMasterKey: true});
+            });
+    }
+
+    function setAcl(user) {
+        // read/write only for the user himself
+        var acl = new Parse.ACL(user);
+        acl.setPublicReadAccess(false);
+        user.setACL(acl);
+        user.save(null, {useMasterKey: true});
+    }
 });
 
 Parse.Cloud.beforeDelete(Parse.User, function (request, response) {
@@ -31,16 +84,20 @@ Parse.Cloud.beforeDelete(Parse.User, function (request, response) {
 
     function handleUser(user) {
         var identities = user.get("identities");
-        if (identities == null) {
+        if (identities == null || _.isEmpty(identities)) {
             return Parse.Promise.as();
         }
 
         return getCompensations(identities)
             .then(function (compensations) {
+                if (_.isEmpty(compensations)) {
+                    return Parse.Promise.as();
+                }
+
                 return settleCompensations(compensations);
             })
             .then(function () {
-                return handleIdentities(identities, user)
+                return deactivateIdentities(identities)
             });
     }
 
@@ -58,52 +115,47 @@ Parse.Cloud.beforeDelete(Parse.User, function (request, response) {
     }
 
     function settleCompensations(compensations) {
-        if (_.isEmpty(compensations)) {
-            return Parse.Promise.as();
-        }
-
         _.each(compensations, function (comp) {
             comp.set("paid", true);
         });
 
-        return Parse.Object.saveAll(compensations);
+        return Parse.Object.saveAll(compensations, {useMasterKey: true});
     }
 
-    function handleIdentities(identities, user) {
-        if (_.isEmpty(identities)) {
-            return Parse.Promise.as();
-        }
-
-        var promise = Parse.Promise.as();
+    function deactivateIdentities(identities) {
         _.each(identities, function (identity) {
-            promise = promise
-                .then(function () {
-                    return identity.fetch({useMasterKey: true})
-                        .then(function (identity) {
-                            identity.set("active", false);
-                            var group = identity.get("group");
-                            var nickname = identity.get("nickname");
-                            return Parse.Promise.when(identity.save(null, {useMasterKey: true}),
-                                removeUserFromGroupRole(user, group.id),
-                                sendPushUserDeleted(user, nickname, group.id));
-                        });
-                });
+            identity.set("active", false);
         });
 
-        // TODO: improve for less api calls
-        return promise;
+        return Parse.Object.saveAll(identities, {useMasterKey: true});
     }
+});
 
-    function sendPushUserDeleted(user, nickname, groupId) {
-        var pushQuery = new Parse.Query(Parse.Installation);
-        pushQuery.equalTo("channels", groupId);
-        pushQuery.notEqualTo("user", user);
+Parse.Cloud.afterDelete(Parse.User, function (request) {
+    var user = request.object;
+    var identities = user.get("identities");
+    _.each(identities, function (identity) {
+        identity.fetch({useMasterKey: true})
+            .then(function (identity) {
+                identity.set("active", false);
+                var group = identity.get("group");
+                var nickname = identity.get("nickname");
+                return sendPushUserDeleted(nickname, group)
+                    .then(function () {
+                        // group beforeDelete handler will make sure that group only gets deleted if it contains no
+                        // active identities
+                        return group.destroy({useMasterKey: true})
+                    });
+            });
+    });
+
+    function sendPushUserDeleted(nickname, group) {
         return Parse.Push.send({
-            where: pushQuery,
+            channels: [group.id],
             data: {
                 type: "userDeleted",
                 "content-available": 1,
-                groupId: groupId,
+                groupId: group.id,
                 user: nickname
             }
         }, {useMasterKey: true});
@@ -111,86 +163,68 @@ Parse.Cloud.beforeDelete(Parse.User, function (request, response) {
 });
 
 Parse.Cloud.beforeSave("Identity", function (request, response) {
-    var user = request.user;
     var identity = request.object;
     if (identity.isNew()) {
         response.success();
         return;
     }
 
-    checkFields(identity, user)
+    checkFields(identity)
         .then(function () {
             response.success();
         }, function (error) {
             response.error("failed to save identity with error " + error.message);
         });
 
-    function checkFields(identity, user) {
+    function checkFields(identity) {
+        var promises = [Parse.Promise.as()];
+
         if (identity.dirty("avatar")) {
-            return handleAvatar(identity);
+            promises.push(handleAvatar());
         }
 
         if (identity.dirty("active")) {
             if (!identity.get("active") && !identity.get("pending")) {
-                return handleIdentityInactive(user, identity);
+                promises.push(handleIdentityInactive(identity));
             }
-
-            return Parse.Promise.as();
         }
 
         if (identity.dirty("pending")) {
             if (!identity.get("pending")) {
-                return sendPushUserJoinedGroup(user, identity);
+                promises.push(sendPushUserJoinedGroup(identity));
             }
+        }
 
-            return Parse.Promise.as();
+        return Parse.Promise.when(promises);
+    }
+
+    function handleAvatar() {
+        var oldIdentity = request.original;
+        var file = oldIdentity.get("avatar");
+        if (file != null) {
+            return deleteParseFile(file.name())
         }
 
         return Parse.Promise.as();
     }
 
-    function handleAvatar(identity) {
-        var Identity = Parse.Object.extend("Identity");
-        var oldIdentity = new Identity();
-        oldIdentity.id = identity.id;
-        return oldIdentity.fetch({useMasterKey: true})
-            .then(function (identity) {
-                var file = identity.get("avatar");
-                if (file != null) {
-                    return deleteParseFile(file.name())
+    function handleIdentityInactive(identity) {
+        return getUserFromIdentity(identity)
+            .then(function (user) {
+                var group = identity.get("group");
+                return removeUserFromGroupRole(user, group.id);
+            });
+    }
+
+    function removeUserFromGroupRole(user, groupId) {
+        return getGroupRole(groupId)
+            .then(function (groupRole) {
+                if (groupRole != null) {
+                    groupRole.getUsers().remove(user);
+                    return groupRole.save(null, {useMasterKey: true});
                 }
 
                 return Parse.Promise.as();
-            });
-    }
-
-    function handleIdentityInactive(user, identity) {
-        var group = identity.get("group");
-        var nickname = identity.get("nickname");
-        return removeUserFromGroupRole(user, group.id)
-            .then(function () {
-                return sendPushUserLeftGroup(group, user, nickname);
-            });
-    }
-
-    function sendPushUserLeftGroup(group, user, nickname) {
-        return group.fetch({useMasterKey: true})
-            .then(function (groupFetched) {
-                var groupName = groupFetched.get("name");
-
-                var pushQuery = new Parse.Query(Parse.Installation);
-                pushQuery.equalTo("channels", group.id);
-                pushQuery.notEqualTo("user", user);
-                return Parse.Push.send({
-                    where: pushQuery,
-                    data: {
-                        type: "userLeft",
-                        "content-available": 1,
-                        groupId: group.id,
-                        user: nickname,
-                        groupName: groupName
-                    }
-                }, {useMasterKey: true});
             });
     }
 
@@ -200,10 +234,10 @@ Parse.Cloud.beforeSave("Identity", function (request, response) {
         return group.fetch({useMasterKey: true})
             .then(function (groupFetched) {
                 var groupName = groupFetched.get("name");
-
                 var pushQuery = new Parse.Query(Parse.Installation);
                 pushQuery.equalTo("channels", group.id);
                 pushQuery.notEqualTo("user", user);
+
                 return Parse.Push.send({
                     where: pushQuery,
                     data: {
@@ -218,17 +252,6 @@ Parse.Cloud.beforeSave("Identity", function (request, response) {
     }
 });
 
-Parse.Cloud.afterSave("Identity", function (request) {
-    var identity = request.object;
-    if (!identity.existed() || identity.get("active")) {
-        return;
-    }
-
-    var group = identity.get("group");
-    // group before delete handler makes sure that group is only deleted if there are no active identities
-    group.destroy({useMasterKey: true})
-});
-
 Parse.Cloud.beforeDelete("Identity", function (request, response) {
     var identity = request.object;
 
@@ -236,6 +259,7 @@ Parse.Cloud.beforeDelete("Identity", function (request, response) {
         .then(function (user) {
             if (user != null) {
                 user.remove("identities", identity);
+                user.remove("archivedIdentities", identity);
                 return user.save(null, {useMasterKey: true});
             }
 
@@ -246,12 +270,6 @@ Parse.Cloud.beforeDelete("Identity", function (request, response) {
         }, function (error) {
             response.error("Failed to remove identity from user with error: " + error.message);
         });
-
-    function getUserFromIdentity(identity) {
-        var query = new Parse.Query(Parse.User);
-        query.equalTo("identities", identity);
-        return query.first({useMasterKey: true});
-    }
 });
 
 /**
@@ -320,11 +338,11 @@ Parse.Cloud.beforeDelete("Group", function (request, response) {
                     return Parse.Promise.error({"message": "This group has active identities, can't delete!"});
                 }
 
-                return deleteIdentities(identities);
+                return Parse.Object.destroyAll(identities, {useMasterKey: true});
             })
             .then(function () {
                 return Parse.Promise.when(deleteGroupRole(group), deleteAllPurchases(group), deleteAllCompensations(group));
-            })
+            });
     }
 
     function getIdentitiesForGroup(group) {
@@ -338,10 +356,6 @@ Parse.Cloud.beforeDelete("Group", function (request, response) {
         return _.some(identities, function (identity) {
             return identity.get("active") && !identity.get("pending");
         });
-    }
-
-    function deleteIdentities(identities) {
-        return Parse.Promise.when(Parse.Object.destroyAll(identities, {useMasterKey: true}));
     }
 
     function deleteGroupRole(group) {
@@ -363,9 +377,9 @@ Parse.Cloud.beforeDelete("Group", function (request, response) {
             .then(function (purchases) {
                 if (purchases.length > 0) {
                     return Parse.Object.destroyAll(purchases, {useMasterKey: true})
-                } else {
-                    return Parse.Promise.as();
                 }
+
+                return Parse.Promise.as();
             });
     }
 
@@ -377,9 +391,9 @@ Parse.Cloud.beforeDelete("Group", function (request, response) {
             .then(function (compensations) {
                 if (compensations.length > 0) {
                     return Parse.Object.destroyAll(compensations, {useMasterKey: true})
-                } else {
-                    return Parse.Promise.as();
                 }
+
+                return Parse.Promise.as();
             });
     }
 });
@@ -406,14 +420,10 @@ Parse.Cloud.afterSave("Purchase", function (request) {
             return calculateCompensations(group);
         })
         .then(function () {
-            if (purchase.existed()) {
-                return sendPushPurchaseEdited();
-            } else {
-                return sendPushNewPurchase();
-            }
+            return purchase.existed() ? sendPushPurchaseEdited(purchase, group) : sendPushNewPurchase(purchase, buyer, group);
         });
 
-    function sendPushPurchaseEdited() {
+    function sendPushPurchaseEdited(purchase, group) {
         return Parse.Push.send({
             channels: [group.id],
             data: {
@@ -425,7 +435,7 @@ Parse.Cloud.afterSave("Purchase", function (request) {
         }, {useMasterKey: true});
     }
 
-    function sendPushNewPurchase() {
+    function sendPushNewPurchase(purchase, buyer, group) {
         var store = purchase.get("store");
         var totalPrice = purchase.get("totalPrice");
         if (totalPrice == null) {
@@ -560,7 +570,7 @@ Parse.Cloud.afterSave("Compensation", function (request) {
         });
 
 
-    function sendPush(compensationId, debtorId, creditor, group, amount, calcNew) {
+    function sendPush(compensationId, debtorId, creditor, group, amount, didCalcNew) {
         return Parse.Promise.when(creditor.fetch({useMasterKey: true}), group.fetch({useMasterKey: true}))
             .then(function (creditor, group) {
                 var nicknameCreditor = creditor.get("nickname");
@@ -576,7 +586,7 @@ Parse.Cloud.afterSave("Compensation", function (request) {
                         groupId: group.id,
                         currencyCode: currencyCode,
                         amount: amount,
-                        calcNew: calcNew
+                        didCalcNew: didCalcNew
                     }
                 }, {useMasterKey: true});
             })
@@ -595,11 +605,11 @@ Parse.Cloud.define("pushCompensationRemind", function (request, response) {
 
     var Compensation = Parse.Object.extend("Compensation");
     var query = new Parse.Query(Compensation);
-    query.get(compensationId)
+    query.get(compensationId, {useMasterKey: true})
         .then(function (compensation) {
             var creditor = compensation.get("creditor");
             var debtor = compensation.get("debtor");
-            return Parse.Promise.when(creditor.fetch({useMasterKey: true}), getUserForIdentity(debtor))
+            return Parse.Promise.when(creditor.fetch({useMasterKey: true}), getUserFromIdentity(debtor))
                 .then(function (creditor, user) {
                     var amount = compensation.get("amount");
                     var amountDouble = amount[0] / amount[1];
@@ -628,12 +638,6 @@ Parse.Cloud.define("pushCompensationRemind", function (request, response) {
         }, function (error) {
             response.error("Push failed to send with error: " + error.message);
         });
-
-    function getUserForIdentity(identity) {
-        var query = new Parse.Query(Parse.User);
-        query.equalTo("identities", identity);
-        return query.first({useMasterKey: true})
-    }
 });
 
 /**
@@ -690,45 +694,6 @@ Parse.Cloud.define("calculateCompensations", function (request, response) {
         }, function (error) {
             response.error("failed to calc comps with error " + error.message);
         });
-});
-
-Parse.Cloud.define("testAddIdentity", function (request, response) {
-    var user = request.user;
-    var identityId = request.params.identityId;
-    var identity = getIdentityPointerFromId(identityId);
-
-    addIdentity(user, identity)
-        .then(function () {
-            response.success("Successfully added identity to user.")
-        }, function (error) {
-            response.error("Failed to add identity to user with error: " + error.message);
-        });
-
-    function addIdentity(user, identity) {
-        return Parse.Promise.when(identity.fetch({useMasterKey: true}), user.get("currentIdentity").fetch({useMasterKey: true}))
-            .then(function (identity, currentIdentity) {
-                var nickname = currentIdentity.get("nickname");
-                var avatar = currentIdentity.get("avatar");
-
-                if (nickname != null) {
-                    identity.set("nickname", nickname);
-                }
-                if (avatar != null) {
-                    identity.set("avatar", avatar);
-                }
-                identity.set("pending", false);
-                var acl = identity.getACL();
-                acl.setReadAccess(user, true);
-                acl.setWriteAccess(user, true);
-                identity.setACL(acl);
-                return identity.save(null, {useMasterKey: true});
-            })
-            .then(function (identity) {
-                user.addUnique("identities", identity);
-                user.set("currentIdentity", identity);
-                return user.save(null, {useMasterKey: true});
-            });
-    }
 });
 
 Parse.Cloud.define("checkIdentity", function (request, response) {
@@ -813,16 +778,15 @@ Parse.Cloud.define("addGroup", function (request, response) {
 
 Parse.Cloud.define("loginWithGoogle", function (request, response) {
     var idToken = request.params.idToken;
-    var isNew = false;
 
     verifyIdToken(idToken)
         .then(function (httpResponse) {
             if (httpResponse.status != 200) {
-                return Parse.Promise.error({message: "error Google token verification"});
+                return Parse.Promise.error({message: "Login failed, token could not be verified."});
             }
 
             var token = httpResponse.data;
-            if (token.aud != "serverId") { // TODO: replace with real server id
+            if (token.aud != "982871908066-1scsmdngvfsj68t7kq5o42t35oubujme.apps.googleusercontent.com") {
                 return Parse.Promise.error({message: "aud does not match"});
             }
 
@@ -831,23 +795,17 @@ Parse.Cloud.define("loginWithGoogle", function (request, response) {
             return upsertGoogleUser(googleId, email);
         })
         .then(function (user) {
-            var result = {};
-            result.sessionToken = user.getSessionToken();
-            result.isNew = isNew;
-            response.success(JSON.stringify(result));
+            response.success(user.getSessionToken());
         }, function (error) {
             response.error("idToken could not be verified with error " + error.message);
         });
 
     function verifyIdToken(idToken) {
         var url = "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + idToken;
-
-        return Parse.Promise.as({status: 200, data: {aud: "serverId", sub: "123456789", email: "fnberta@qwittig.ch"}});
-
-        //return Parse.Cloud.httpRequest({
-        //    method: 'POST',
-        //    url: url
-        //});
+        return Parse.Cloud.httpRequest({
+            method: 'POST',
+            url: url
+        });
     }
 
     function upsertGoogleUser(googleId, email) {
@@ -857,7 +815,6 @@ Parse.Cloud.define("loginWithGoogle", function (request, response) {
         return query.first({useMasterKey: true})
             .then(function (user) {
                 if (user == null) {
-                    isNew = true;
                     return createNewUser(email, password, googleId);
                 }
 
@@ -878,10 +835,7 @@ Parse.Cloud.define("loginWithGoogle", function (request, response) {
             user.set("password", password);
             user.set("googleId", googleId);
 
-            return user.signUp()
-                .then(function (user) {
-                    return addGroup(user, "Qwittig Rocks", "CHF")
-                });
+            return user.signUp();
         }
     }
 });
@@ -930,6 +884,71 @@ Parse.Cloud.define("cleanUpIdentities", function (request, response) {
         });
 });
 
+/**
+ * Calculates the spending stats and returns them as a JSON string.
+ *
+ * @param groupId the object id of the group for which to calculate the stats
+ * @param year the year for which to calculate the stats
+ * @param month the month for which to calculate the stats
+ */
+Parse.Cloud.define("statsSpending", function (request, response) {
+    var groupId = request.params.groupId;
+    var group = getGroupPointerFromId(groupId);
+    var year = request.params.year;
+    var month = request.params.month;
+
+    calculateSpendingStats(group, year, month)
+        .then(function (result) {
+            response.success(JSON.stringify(result))
+        }, function (error) {
+            response.error("Failed with error: " + error.message);
+        });
+});
+
+/**
+ * Calculates the store stats and returns them as a JSON string.
+ *
+ * @param groupId the object id of the group for which to calculate the stats
+ * @param year the year for which to calculate the stats
+ * @param month the month for which to calculate the stats
+ */
+Parse.Cloud.define("statsStores", function (request, response) {
+    var groupId = request.params.groupId;
+    var group = getGroupPointerFromId(groupId);
+    var year = request.params.year;
+    var month = request.params.month;
+    var statsType = "store";
+
+    calculateStoreOrCurrencyStats(statsType, group, year, month)
+        .then(function (result) {
+            response.success(JSON.stringify(result))
+        }, function (error) {
+            response.error("Failed with error: " + error.message);
+        });
+});
+
+/**
+ * Calculates the currency stats and returns them as a JSON string.
+ *
+ * @param groupId the object id of the group for which to calculate the stats
+ * @param year the year for which to calculate the stats
+ * @param month the month for which to calculate the stats
+ */
+Parse.Cloud.define("statsCurrencies", function (request, response) {
+    var groupId = request.params.groupId;
+    var group = getGroupPointerFromId(groupId);
+    var year = request.params.year;
+    var month = request.params.month;
+    var statsType = "currency";
+
+    calculateStoreOrCurrencyStats(statsType, group, year, month)
+        .then(function (result) {
+            response.success(JSON.stringify(result))
+        }, function (error) {
+            response.error("Failed with error: " + error.message);
+        });
+});
+
 function getIdsFromObjects(objectArray) {
     var idArray = [];
 
@@ -938,18 +957,6 @@ function getIdsFromObjects(objectArray) {
     });
 
     return idArray;
-}
-
-function removeUserFromGroupRole(user, groupId) {
-    return getGroupRole(groupId)
-        .then(function (groupRole) {
-            if (groupRole != null) {
-                groupRole.getUsers().remove(user);
-                return groupRole.save(null, {useMasterKey: true});
-            }
-
-            return Parse.Promise.as();
-        });
 }
 
 function getGroupRole(groupId) {
@@ -964,7 +971,7 @@ function getGroupRoleName(groupId) {
 }
 
 function deleteParseFile(fileName) {
-    var url = "https://api.parse.com/1/files/" + fileName;
+    var url = "http://localhost:3000/api/data/files/" + fileName;
 
     return Parse.Cloud.httpRequest({
         method: 'DELETE',
@@ -988,6 +995,17 @@ function getIdentityPointerFromId(identityId) {
     var identity = new Identity();
     identity.id = identityId;
     return identity;
+}
+
+function getUserFromIdentity(identity) {
+    var activeQuery = new Parse.Query(Parse.User);
+    activeQuery.equalTo("identities", identity);
+
+    var archivedQuery = new Parse.Query(Parse.User);
+    archivedQuery.equalTo("archivedIdentities", identity);
+
+    var query = Parse.Query.or(activeQuery, archivedQuery);
+    return query.first({useMasterKey: true});
 }
 
 function addGroup(user, name, currency) {
@@ -1050,7 +1068,7 @@ function addGroup(user, name, currency) {
     function getCurrentIdentity(user) {
         var identity = user.get("currentIdentity");
         if (identity != null) {
-            return identity.fetch();
+            return identity.fetch({useMasterKey: true});
         }
 
         return Parse.Promise.as();
@@ -1094,10 +1112,6 @@ function addGroup(user, name, currency) {
  * @param group the group for which the balances should be calculated
  * @param identities the users to calculate the balances for
  * @returns {Parse.Promise} when the calculation finished and balances are set
- *
- * TODO: Currently queries all purchases and compensations of a group. This will fail as soon as a group has more than
- * 1000 purchases. In this sense, this method does not scale well. Think about not always re-calculating the whole
- * balance but instead incrementing!
  */
 function calculateAndSetBalance(group, identities) {
     // create query for Purchases
@@ -1321,5 +1335,205 @@ function calculateCompensations(group) {
 
             return compensation;
         }
+    }
+}
+
+function calculateSpendingStats(group, year, month) {
+    // create query for Purchases
+    var Purchase = Parse.Object.extend("Purchase");
+    var purchaseQuery = new Parse.Query(Purchase);
+    purchaseQuery.equalTo("group", group);
+    var firstOfMonthInYear = getFirstOfMonthInYear(year, month);
+    purchaseQuery.greaterThanOrEqualTo("date", firstOfMonthInYear);
+    purchaseQuery.lessThanOrEqualTo("date", getLastOfMonthInYear(year, month));
+
+    // create query for Identities
+    var Identity = Parse.Object.extend("Identity");
+    var identityQuery = new Parse.Query(Identity);
+    identityQuery.equalTo("group", group);
+
+    return Parse.Promise.when(purchaseQuery.find({useMasterKey: true}), identityQuery.find({useMasterKey: true}))
+        .then(function (purchases, identities) {
+            var results = {};
+
+            var numberOfUnits = 0;
+            var purchasesAll;
+            if (month != null) {
+                numberOfUnits = getDaysInMonth(firstOfMonthInYear);
+                purchasesAll = sortPurchasesByDay(purchases, numberOfUnits);
+            } else {
+                numberOfUnits = 12;
+                purchasesAll = sortPurchasesByMonth(purchases);
+            }
+
+            results.numberOfUnits = numberOfUnits;
+            results.members = calculateStatsForIdentities(purchasesAll, identities);
+            results.group = calculateStatsForGroup(purchasesAll, group);
+
+            return results;
+        });
+
+    function sortPurchasesByMonth(purchases) {
+        var purchasesYear = {};
+        for (var i = 0; i < 12; i++) {
+            purchasesYear[i] = [];
+        }
+
+        _.each(purchases, function (purchase) {
+            var createdAt = purchase.get("date");
+            var month = createdAt.getMonth();
+            purchasesYear[month].push(purchase);
+        });
+
+        return purchasesYear;
+    }
+
+    function sortPurchasesByDay(purchases, daysInMonth) {
+        var purchasesMonth = {};
+
+        for (var i = 0; i < daysInMonth; i++) {
+            purchasesMonth[i] = [];
+        }
+
+        _.each(purchases, function (purchase) {
+            var createdAt = purchase.get("date");
+            var day = createdAt.getDate() - 1; // use 0 based numbering as with months
+            purchasesMonth[day].push(purchase);
+        });
+
+        return purchasesMonth;
+    }
+
+    function getDaysInMonth(anyDateInMonth) {
+        var date = new Date(anyDateInMonth.getYear(), anyDateInMonth.getMonth() + 1, 0);
+        return date.getDate();
+    }
+}
+
+
+function getFirstOfMonthInYear(year, month) {
+    if (month != null) {
+        return new Date(year, month, 1);
+    } else {
+        return new Date(year, 0, 1);
+    }
+}
+
+function getLastOfMonthInYear(year, month) {
+    if (month != null) {
+        return new Date(year, month, 31, 23, 59, 59);
+    } else {
+        return new Date(year, 11, 31, 23, 59, 59);
+    }
+}
+
+function calculateStatsForGroup(purchasesByType, groupToCalculate) {
+    var group = {};
+    group.groupId = groupToCalculate.id;
+    group.units = [];
+
+    for (var type in purchasesByType) {
+        if (purchasesByType.hasOwnProperty(type)) {
+            var unit = {};
+            unit.identifier = type;
+
+            var totalPrice = 0;
+            _.each(purchasesByType[type], function (purchase) {
+                totalPrice += purchase.get("totalPrice");
+            });
+            unit.total = totalPrice;
+
+            var numberOfPurchases = _.size(purchasesByType[type]);
+            unit.average = getAveragePrice(numberOfPurchases, totalPrice);
+
+            group.units.push(unit);
+        }
+    }
+
+    return group;
+}
+
+function calculateStatsForIdentities(purchasesByType, identities) {
+    var members = [];
+
+    _.each(identities, function (identity) {
+        var member = {};
+        member.memberId = identity.id;
+        member.units = [];
+
+        for (var type in purchasesByType) {
+            if (purchasesByType.hasOwnProperty(type)) {
+                var unit = {};
+                unit.identifier = type;
+
+                var totalPrice = 0;
+                _.each(purchasesByType[type], function (purchase) {
+                    var buyer = purchase.get("buyer");
+                    if (buyer.id == identity.id) {
+                        totalPrice += purchase.get("totalPrice");
+                    }
+                });
+                unit.total = totalPrice;
+
+                var numberOfPurchases = _.size(purchasesByType[type]);
+                unit.average = getAveragePrice(numberOfPurchases, totalPrice);
+
+                member.units.push(unit);
+            }
+        }
+
+        members.push(member);
+    });
+
+    return members;
+}
+
+function getAveragePrice(numberOfPurchases, totalPrice) {
+    var averagePrice = 0;
+    if (numberOfPurchases > 0) {
+        averagePrice = totalPrice / numberOfPurchases;
+    }
+    return averagePrice;
+}
+
+
+function calculateStoreOrCurrencyStats(statsType, group, year, month) {
+    // create query for Purchases
+    var Purchase = Parse.Object.extend("Purchase");
+    var purchaseQuery = new Parse.Query(Purchase);
+    purchaseQuery.limit(1000);
+    purchaseQuery.equalTo("group", group);
+    purchaseQuery.greaterThanOrEqualTo("date", getFirstOfMonthInYear(year, month));
+    purchaseQuery.lessThanOrEqualTo("date", getLastOfMonthInYear(year, month));
+
+    // create query for Identities
+    var Identity = Parse.Object.extend("Identity");
+    var identityQuery = new Parse.Query(Identity);
+    identityQuery.equalTo("group", group);
+
+    return Parse.Promise.when(purchaseQuery.find({useMasterKey: true}), identityQuery.find({useMasterKey: true}))
+        .then(function (purchases, identities) {
+            var results = {};
+
+            var purchasesByType = sortPurchasesByType(purchases, statsType);
+            results.numberOfUnits = _.size(purchasesByType);
+            results.group = calculateStatsForGroup(purchasesByType, group);
+            results.members = calculateStatsForIdentities(purchasesByType, identities);
+
+            return results;
+        });
+
+    function sortPurchasesByType(purchases, statsType) {
+        var purchasesTypes = {};
+
+        _.each(purchases, function (purchase) {
+            var type = purchase.get(statsType);
+            if (purchasesTypes[type] == null) {
+                purchasesTypes[type] = [];
+            }
+            purchasesTypes[type].push(purchase);
+        });
+
+        return purchasesTypes;
     }
 }
