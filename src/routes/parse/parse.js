@@ -12,12 +12,12 @@ var parseApi = new ParseServer({
         },
         ios: [
             {
-                pfx: __dirname + '/ParseDevelopmentPushCertificate.p12',
+                pfx: __dirname + '/ParsePushDevelopmentCertificate.p12',
                 bundleId: 'ch.giantific.qwittig',
                 production: false
             },
             {
-                pfx: __dirname + '/ParseProductionPushCertificate.p12',
+                pfx: __dirname + '/ParsePushProductionCertificate.p12',
                 bundleId: 'ch.giantific.qwittig',
                 production: true
             }

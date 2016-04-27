@@ -1,8 +1,7 @@
 var express = require('express');
 var path = require('path');
-var logger = require('morgan');
+var morgan = require('morgan');
 var bodyParser = require('body-parser');
-var multer = require('multer');
 
 var ocr = require('./routes/ocr');
 var apple = require('./routes/apple/apple');
@@ -10,15 +9,16 @@ var parse = require('./routes/parse/parse');
 
 var app = express();
 
-app.use(logger('dev'));
+app.use(morgan('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
-app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', apple);
 app.use('/api', ocr);
 app.use('/api/data', parse);
 
+
+// error handlers
 
 // catch and handle parse.com errors
 app.use(function (err, req, res, next) {
@@ -36,20 +36,12 @@ app.use(function (req, res, next) {
     next(err);
 });
 
-// error handlers
-
-// development error handler
-// will print stacktrace
-if (app.get('env') === 'development') {
-    app.use(function (err, req, res, next) {
-        console.trace(err.message);
-        res.status(err.status || 500);
-    });
-}
-
-// production error handler
-// no stacktraces leaked to user
 app.use(function (err, req, res, next) {
+    // print stacktrace if in dev mode
+    if (app.get('env') === 'development') {
+        console.trace(err);
+    }
+    
     res.status(err.status || 500);
 });
 

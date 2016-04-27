@@ -14,18 +14,18 @@ RUN \
     libpng12-dev \
     python-dev \
     python-numpy \
-    python3.4-dev \
-    python3-numpy \
+    python-skimage \
     git \
     wget \
     unzip \
     tesseract-ocr \
     tesseract-ocr-deu
+
    
 ## Install OpenCV 
 WORKDIR /opt/opencv
-RUN wget https://github.com/Itseez/opencv/archive/3.0.0.zip
-RUN unzip 3.0.0.zip
+RUN wget https://github.com/Itseez/opencv/archive/3.1.0.zip
+RUN unzip 3.1.0.zip
   
 WORKDIR /opt/opencv/opencv-3.0.0
 RUN \
@@ -45,7 +45,7 @@ RUN echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.2 multiver
 RUN apt-get update && apt-get install -y mongodb-org
 
 ## Install Node.js    
-RUN curl --silent --location https://deb.nodesource.com/setup_0.12 | bash -
+RUN curl --silent --location https://deb.nodesource.com/setup_5.x | bash -
 RUN apt-get install -y nodejs
 
 WORKDIR /opt/node

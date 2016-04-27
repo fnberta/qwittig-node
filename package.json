@@ -3,18 +3,26 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "dev": "babel-node src/server.js",
+    "clean": "rm -rf build && mkdir build && babel src -d build",
+    "production": "rm -rf build && mkdir build && babel src -d build && babel src -d build && node build/server.js",
+    "production-pm2": "rm -rf build && mkdir build && babel src -d build && babel src -d build && pm2 start build/server.js"
   },
   "dependencies": {
-    "bluebird": "~3.3.4",
-    "body-parser": "~1.15.0",
-    "debug": "~2.2.0",
-    "express": "~4.13.3",
+    "body-parser": "^1.15.0",
+    "express": "^4.13.4",
     "fraction.js": "^3.2.5",
-    "morgan": "~1.7.0",
-    "multer": "~1.1.0",
+    "lodash": "^4.11.1",
+    "morgan": "^1.7.0",
+    "multer": "^1.1.0",
+    "mz": "^2.4.0",
     "parse-server": "^2.1.4",
-    "request": "~2.69.0",
-    "underscore": "^1.8.3"
+    "request-promise": "^3.0.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.7.5",
+    "babel-preset-es2015-node5": "^1.2.0",
+    "nodemon": "^1.9.1",
+    "debug": "latest"
   }
 }
