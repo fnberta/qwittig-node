@@ -1,9 +1,17 @@
-var ParseServer = require('parse-server').ParseServer;
-var parseApi = new ParseServer({
+const path = require('path');
+const ParseServer = require('parse-server').ParseServer;
+const iosDevCert = path.resolve(__dirname, '../../../cert/ParsePushDevelopmentCertificate.p12');
+const iosProdCert = path.resolve(__dirname, '../../../cert/ParsePushProductionCertificate.p12');
+const cloudCode = path.resolve(__dirname, './cloudcode/main.js');
+
+const appId = 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji';
+const masterKey = 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK';
+
+const parseApi = new ParseServer({
     databaseURI: 'mongodb://parse:phusPAJ4drufuka4haye@localhost:27017/qwittig',
-    cloud: __dirname + '/cloudcode/main.js',
-    appId: 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji',
-    masterKey: 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK',
+    cloud: cloudCode,
+    appId: appId,
+    masterKey: masterKey,
     serverURL: 'http://localhost:3000/api/data',
     push: {
         android: {
@@ -12,12 +20,12 @@ var parseApi = new ParseServer({
         },
         ios: [
             {
-                pfx: __dirname + '/ParsePushDevelopmentCertificate.p12',
+                pfx: iosDevCert,
                 bundleId: 'ch.giantific.qwittig',
                 production: false
             },
             {
-                pfx: __dirname + '/ParsePushProductionCertificate.p12',
+                pfx: iosProdCert,
                 bundleId: 'ch.giantific.qwittig',
                 production: true
             }

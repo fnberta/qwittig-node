@@ -1,69 +1,83 @@
-var express = require('express');
-var router = express.Router();
-var request = require('request-promise');
-var fs = require('mz/fs');
-var execFile = require('mz/child_process').execFile;
-var path = require('path');
-var multer = require('multer');
-var receipts = multer({ dest: './receipts/' });
+const express = require('express');
+const router = express.Router();
+const request = require('request-promise');
+const execFile = require('mz/child_process').execFile;
+const path = require('path');
+const multer = require('multer');
+const receipts = multer({dest: './receipts/'});
+const rootPath = './';
 
 router.route('/receipt')
     .post(receipts.single('receipt'), function (req, res, next) {
-        req.socket.setTimeout(0);
+        res.setTimeout(0);
 
         var sessionToken = req.body.sessionToken;
         var receipt = req.file;
 
-        // validateSessionToken(sessionToken)
-        //     .then(() => performOcr(receipt))
-        //     .then(result => res.json(result))
-        //     .catch(e => next(e));
-
-        performOcr(receipt)
-        .then(result => res.json(result))
+        validateSessionToken(sessionToken)
+            .then((user) => {
+                return performOcr(receipt)
+                    .then(result => {
+                        res.json(result);
+                        return sendPush(result, user)
+                    })
+            })
             .catch(e => next(e));
     });
 
 function validateSessionToken(sessionToken) {
-    return request({
-            url: 'http://localhost:3000/sessions/me',
-            method: 'GET',
+    return request(
+        {
+            method: "GET",
+            url: "http://localhost:3000/api/data/sessions/me",
             headers: {
-                'X-Parse-Application-Id': 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji',
-                'X-Parse-Session-Token': sessionToken
-            }
+                "X-Parse-Application-Id": "yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji",
+                "X-Parse-Session-Token": sessionToken
+            },
+            json: true
         })
-        .spread((response, body) => {
-            var statusCode = response.statusCode;
-            if (statusCode != 200) {
-                var parseResponse = JSON.parse(body);
-                var error = new Error(parseResponse.error);
-                error.status = 401;
-                error.parseCode = parseResponse.code;
-                throw error;
-            }
-        });
+        .then(response => response.user);
 }
 
 function performOcr(receipt) {
-    var imagePath = path.resolve(process.cwd(), receipt.path);
-    var scriptPath = path.resolve(process.cwd(), 'bin/Run.py');
-    var args = [imagePath];
+    const imagePath = path.resolve(rootPath, receipt.path);
+    const scriptPath = path.resolve(rootPath, 'bin/Run.py');
+    const args = [imagePath];
 
-    return execFile(scriptPath, args, {cwd: path.resolve(process.cwd(), 'bin/')})
-        .spread((stdout, stderr) => {
-            console.log('stdout', stdout);
-            console.log('stderr', stderr);
+    return execFile(scriptPath, args, {cwd: path.resolve(rootPath, 'bin/')})
+        .then(([stdout, stderr]) => {
+            if (stderr) {
+                console.log('stderr', stderr);
+                throw new Error();
+            }
+
             return JSON.parse(stdout);
-            // var jsonOutput = removeExtension(imagePath) + '.json';
-            // return fs.readFile(jsonOutput, 'utf8');
         });
-        // .then(data => JSON.parse(data));
 }
 
-function removeExtension(filename) {
-    var lastDotPosition = filename.lastIndexOf(".");
-    return lastDotPosition === -1 ? filename : filename.substr(0, lastDotPosition);
+function sendPush(data, user) {
+    return request({
+        method: "POST",
+        url: "http://localhost:3000/api/data/push",
+        headers: {
+            "X-Parse-Application-Id": "yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji",
+            "X-Parse-Master-Key": "TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK"
+        },
+        body: {
+            "where": {
+                "user": user
+            },
+            "data": {
+                "type": "ocrFinished",
+                "content-available": 1,
+                "alert": {
+                    "loc-key": "locKey.ocrFinished"
+                },
+                "purchase": data
+            }
+        },
+        json: true
+    });
 }
 
 module.exports = router;

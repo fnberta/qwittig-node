@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "name": "Qwittig Server",
+      "script": "build/server.js",
+      "watch": false,
+      "env": {
+        "NODE_ENV": "development",
+      },
+      "env_production" : {
+        "NODE_ENV": "production"
+      }
+    }
+  ]
+}

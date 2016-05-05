@@ -3,13 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "babel-node src/server.js",
-    "clean": "rm -rf build && mkdir build && babel src -d build",
-    "production": "rm -rf build && mkdir build && babel src -d build && babel src -d build && node build/server.js",
-    "production-pm2": "rm -rf build && mkdir build && babel src -d build && babel src -d build && pm2 start build/server.js"
+    "dev": "DEBUG=* VERBOSE=1 babel-node src/server.js",
+    "build": "rm -rf build && mkdir build && babel src -d build",
+    "production": "pm2 startOrRestart process.json --env production",
+    "deploy": "bash deploy.sh"
   },
   "dependencies": {
-    "body-parser": "^1.15.0",
     "express": "^4.13.4",
     "fraction.js": "^3.2.5",
     "lodash": "^4.11.1",

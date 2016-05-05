@@ -62,11 +62,11 @@ Parse.Cloud.afterSave(Parse.User, function (request) {
                 return Parse.Push.send({
                     channels: [group.id],
                     data: {
-                        type: 'userLeft',
-                        'content-available': 1,
+                        type: "userLeft",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'userLeft',
-                            'loc-args': [nickname, group.name]
+                            "loc-key": "locKey.userLeft",
+                            "loc-args": [nickname, group.name]
                         },
                         groupId: group.id,
                         user: nickname,
@@ -151,11 +151,11 @@ Parse.Cloud.afterDelete(Parse.User, function (request) {
         return Parse.Push.send({
             channels: [group.id],
             data: {
-                type: 'userDeleted',
-                'content-available': 1,
+                type: "userDeleted",
+                "content-available": 1,
                 alert: {
-                    'loc-key': 'userDeleted',
-                    'loc-args': [nickname]
+                    "loc-key": "locKey.userDeleted",
+                    "loc-args": [nickname]
                 },
                 groupId: group.id,
                 user: nickname
@@ -231,11 +231,11 @@ Parse.Cloud.beforeSave('Identity', function (request, response) {
                 return Parse.Push.send({
                     where: pushQuery,
                     data: {
-                        type: 'userJoined',
-                        'content-available': 1,
+                        type: "userJoined",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'userJoined',
-                            'loc-args': [identity.nickname, group.name]
+                            "loc-key": "locKey.userJoined",
+                            "loc-args": [identity.nickname, group.name]
                         },
                         groupId: group.id,
                         user: identity.nickname,
@@ -297,8 +297,8 @@ Parse.Cloud.beforeSave('Group', function (request, response) {
         return Parse.Push.send({
             channels: [group.id],
             data: {
-                type: 'groupNameChanged',
-                'content-available': 1,
+                type: "groupNameChanged",
+                "content-available": 1,
                 groupId: group.id
             }
         }, {useMasterKey: true});
@@ -428,11 +428,11 @@ Parse.Cloud.afterSave('Purchase', function (request) {
                 return Parse.Push.send({
                     channels: [group.id],
                     data: {
-                        type: 'purchaseEdit',
-                        'content-available': 1,
+                        type: "purchaseEdit",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'purchaseEdit',
-                            'loc-args': [buyer.nickname]
+                            "loc-key": "locKey.purchaseEdit",
+                            "loc-args": [buyer.nickname]
                         },
                         purchaseId: purchase.id,
                         identitiesIds: identitiesIds
@@ -452,11 +452,11 @@ Parse.Cloud.afterSave('Purchase', function (request) {
                 return Parse.Push.send({
                     channels: [group.id],
                     data: {
-                        type: 'purchaseNew',
-                        'content-available': 1,
+                        type: "purchaseNew",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'purchaseNew',
-                            'loc-args': [buyer.nickname, totalPrice, purchase.store]
+                            "loc-key": "locKey.purchaseNew",
+                            "loc-args": [buyer.nickname, totalPrice, purchase.store]
                         },
                         currencyCode: group.currency,
                         purchaseId: purchase.id,
@@ -514,8 +514,8 @@ Parse.Cloud.afterDelete('Purchase', function (request) {
         return Parse.Push.send({
             channels: [purchase.group.id],
             data: {
-                type: 'purchaseDelete',
-                'content-available': 1,
+                type: "purchaseDelete",
+                "content-available": 1,
                 purchaseId: purchase.id,
                 groupId: purchase.group.id,
                 identitiesIds: identitiesIds
@@ -578,11 +578,11 @@ Parse.Cloud.afterSave('Compensation', function (request) {
                 return Parse.Push.send({
                     channels: [group.id],
                     data: {
-                        type: 'compensationExistingPaid',
-                        'content-available': 1,
+                        type: "compensationExistingPaid",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'compensationSetPaid',
-                            'loc-args': [creditor.nickname, compensation.amount]
+                            "loc-key": "locKey.compensationSetPaid",
+                            "loc-args": [creditor.nickname, compensation.amount]
                         },
                         compensationId: compensation.id,
                         user: creditor.nickname,
@@ -616,8 +616,8 @@ Parse.Cloud.afterSave('Task', function (request) {
         return Parse.Push.send({
             channels: [task.group.id],
             data: {
-                type: 'taskEdit',
-                'content-available': 1,
+                type: "taskEdit",
+                "content-available": 1,
                 taskId: task.id,
                 identitiesIds: identitiesIds
             }
@@ -631,8 +631,8 @@ Parse.Cloud.afterSave('Task', function (request) {
                 return Parse.Push.send({
                     channels: [task.group.id],
                     data: {
-                        type: 'taskNew',
-                        'content-available': 1,
+                        type: "taskNew",
+                        "content-available": 1,
                         taskId: task.id,
                         groupId: task.group.id,
                         initiatorId: initiator.id,
@@ -674,8 +674,8 @@ Parse.Cloud.afterSave('TaskHistoryEvent', function (request) {
                 return Parse.Push.send({
                     channels: [task.group.id],
                     data: {
-                        type: 'taskNewEvent',
-                        'content-available': 1,
+                        type: "taskNewEvent",
+                        "content-available": 1,
                         eventId: event.id,
                         taskId: task.id,
                         taskTitle: task.title,
@@ -706,8 +706,8 @@ Parse.Cloud.afterDelete('Task', function (request) {
                 return Parse.Push.send({
                     channels: [task.group.id],
                     data: {
-                        type: 'taskDelete',
-                        'content-available': 1,
+                        type: "taskDelete",
+                        "content-available": 1,
                         taskId: task.id,
                         taskTitle: task.title,
                         deleteId: identity.id,
@@ -746,13 +746,13 @@ Parse.Cloud.define('pushCompensationRemind', function (request, response) {
                 return Parse.Push.send({
                     where: pushQuery,
                     data: {
-                        type: 'compensationRemindUser',
-                        'content-available': 1,
+                        type: "compensationRemindUser",
+                        "content-available": 1,
                         alert: {
-                            'loc-key': 'remindUser',
-                            'loc-args': [creditor.nickname, compensation.amount]
+                            "loc-key": "locKey.remindUser",
+                            "loc-args": [creditor.nickname, compensation.amount]
                         },
-                        category: 'remindUserToPay',
+                        category: "remindUserToPay",
                         user: creditor.nickname,
                         amount: compensation.amount,
                         currencyCode: currencyCode,
@@ -790,8 +790,8 @@ Parse.Cloud.define('pushTaskRemind', function (request, response) {
                 return Parse.Push.send({
                     where: pushQuery,
                     data: {
-                        type: 'taskRemindUser',
-                        'content-available': 1,
+                        type: "taskRemindUser",
+                        "content-available": 1,
                         user: reminderIdentity.nickname,
                         taskTitle: task.title,
                         groupId: task.group.id,
@@ -925,6 +925,8 @@ Parse.Cloud.define('addGroup', function (request, response) {
 
 Parse.Cloud.define('loginWithGoogle', function (request, response) {
     var idToken = request.params.idToken;
+    const clientIds = ['982871908066-1scsmdngvfsj68t7kq5o42t35oubujme.apps.googleusercontent.com',
+        '982871908066-0g1m4dj80me2thbb3ov8v0h63a6g4kkp.apps.googleusercontent.com'];
 
     verifyIdToken(idToken)
         .then(httpResponse => {
@@ -932,13 +934,13 @@ Parse.Cloud.define('loginWithGoogle', function (request, response) {
                 return Parse.Promise.error({message: 'Login failed, token could not be verified.'});
             }
 
-            var token = httpResponse.data;
-            if (token.aud != '982871908066-1scsmdngvfsj68t7kq5o42t35oubujme.apps.googleusercontent.com') {
+            const token = httpResponse.data;
+            if (!includes(clientIds, token.aud)) {
                 return Parse.Promise.error({message: 'aud does not match'});
             }
 
-            var googleId = token.sub;
-            var email = token.email;
+            const googleId = token.sub;
+            const email = token.email;
             return upsertGoogleUser(googleId, email);
         })
         .then(
@@ -1097,11 +1099,11 @@ function deleteParseFile(fileName) {
     var url = 'http://localhost:3000/api/data/files/' + fileName;
 
     return Parse.Cloud.httpRequest({
-        method: 'DELETE',
+        method: "DELETE",
         url: url,
         headers: {
-            'X-Parse-Application-Id': 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji',
-            'X-Parse-Master-Key': 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK'
+            "X-Parse-Application-Id": "yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji",
+            "X-Parse-Master-Key": "TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK"
         }
     });
 }
