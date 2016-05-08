@@ -64,6 +64,7 @@ Parse.Cloud.afterSave(Parse.User, function (request) {
                     data: {
                         type: "userLeft",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.userLeft",
                             "loc-args": [nickname, group.name]
@@ -153,6 +154,7 @@ Parse.Cloud.afterDelete(Parse.User, function (request) {
             data: {
                 type: "userDeleted",
                 "content-available": 1,
+                sound: "default",
                 alert: {
                     "loc-key": "locKey.userDeleted",
                     "loc-args": [nickname]
@@ -233,6 +235,7 @@ Parse.Cloud.beforeSave('Identity', function (request, response) {
                     data: {
                         type: "userJoined",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.userJoined",
                             "loc-args": [identity.nickname, group.name]
@@ -430,6 +433,7 @@ Parse.Cloud.afterSave('Purchase', function (request) {
                     data: {
                         type: "purchaseEdit",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.purchaseEdit",
                             "loc-args": [buyer.nickname]
@@ -454,6 +458,7 @@ Parse.Cloud.afterSave('Purchase', function (request) {
                     data: {
                         type: "purchaseNew",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.purchaseNew",
                             "loc-args": [buyer.nickname, totalPrice, purchase.store]
@@ -516,6 +521,7 @@ Parse.Cloud.afterDelete('Purchase', function (request) {
             data: {
                 type: "purchaseDelete",
                 "content-available": 1,
+                sound: "default",
                 purchaseId: purchase.id,
                 groupId: purchase.group.id,
                 identitiesIds: identitiesIds
@@ -580,6 +586,7 @@ Parse.Cloud.afterSave('Compensation', function (request) {
                     data: {
                         type: "compensationExistingPaid",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.compensationSetPaid",
                             "loc-args": [creditor.nickname, compensation.amount]
@@ -748,6 +755,7 @@ Parse.Cloud.define('pushCompensationRemind', function (request, response) {
                     data: {
                         type: "compensationRemindUser",
                         "content-available": 1,
+                        sound: "default",
                         alert: {
                             "loc-key": "locKey.remindUser",
                             "loc-args": [creditor.nickname, compensation.amount]

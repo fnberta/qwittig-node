@@ -1,29 +1,40 @@
 const express = require('express');
-const router = express.Router();
+export const router = express.Router();
+const co = require('co');
 const request = require('request-promise');
 const execFile = require('mz/child_process').execFile;
 const path = require('path');
 const multer = require('multer');
 const receipts = multer({dest: './receipts/'});
-const rootPath = './';
+import {MASTER_KEY} from './parse/parse.js'
+import {APP_ID} from './parse/parse.js'
 
-router.route('/receipt')
-    .post(receipts.single('receipt'), function (req, res, next) {
-        res.setTimeout(0);
+const ROOT_PATH = path.resolve(__dirname, '../../');
 
-        var sessionToken = req.body.sessionToken;
-        var receipt = req.file;
+router.post('/receipt', receipts.single('receipt'), function (req, res, next) {
+    res.setTimeout(3600000);
 
-        validateSessionToken(sessionToken)
-            .then((user) => {
-                return performOcr(receipt)
-                    .then(result => {
-                        res.json(result);
-                        return sendPush(result, user)
-                    })
-            })
-            .catch(e => next(e));
-    });
+    const sessionToken = req.body.sessionToken;
+    const receipt = req.file;
+    if (!sessionToken || !receipt) {
+        const error = new Error('Bad request');
+        error.status = 400;
+        next(error);
+        return;
+    }
+
+    co(function*() {
+        const user = yield validateSessionToken(sessionToken);
+        res.status(200).end();
+        try {
+            const result = yield performOcr(receipt);
+            yield sendPushSuccessful(result, user);
+        } catch (e) {
+            yield sendPushFailed(user);
+            next(e);
+        }
+    }).catch(e => next(e));
+});
 
 function validateSessionToken(sessionToken) {
     return request(
@@ -31,7 +42,7 @@ function validateSessionToken(sessionToken) {
             method: "GET",
             url: "http://localhost:3000/api/data/sessions/me",
             headers: {
-                "X-Parse-Application-Id": "yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji",
+                "X-Parse-Application-Id": APP_ID,
                 "X-Parse-Session-Token": sessionToken
             },
             json: true
@@ -40,44 +51,70 @@ function validateSessionToken(sessionToken) {
 }
 
 function performOcr(receipt) {
-    const imagePath = path.resolve(rootPath, receipt.path);
-    const scriptPath = path.resolve(rootPath, 'bin/Run.py');
+    const imagePath = path.resolve(ROOT_PATH, receipt.path);
+    const scriptPath = path.resolve(ROOT_PATH, 'bin/Run.py');
     const args = [imagePath];
 
-    return execFile(scriptPath, args, {cwd: path.resolve(rootPath, 'bin/')})
+    return execFile(scriptPath, args, {cwd: path.resolve(ROOT_PATH, 'bin/')})
         .then(([stdout, stderr]) => {
             if (stderr) {
-                console.log('stderr', stderr);
-                throw new Error();
+                throw new Error(stderr);
             }
 
             return JSON.parse(stdout);
         });
 }
 
-function sendPush(data, user) {
+function sendPushSuccessful(data, user) {
     return request({
         method: "POST",
         url: "http://localhost:3000/api/data/push",
         headers: {
-            "X-Parse-Application-Id": "yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji",
-            "X-Parse-Master-Key": "TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK"
+            "X-Parse-Application-Id": APP_ID,
+            "X-Parse-Master-Key": MASTER_KEY
         },
         body: {
             "where": {
                 "user": user
             },
             "data": {
-                "type": "ocrFinished",
+                "type": "ocrSucceeded",
                 "content-available": 1,
+                "sound": "default",
                 "alert": {
-                    "loc-key": "locKey.ocrFinished"
+                    "loc-key": "locKey.ocrSucceeded"
                 },
-                "purchase": data
+                "confidentiality": data.confidentiality,
+                "store": data.store,
+                "totalPrice": data.total,
+                "items": data.items
             }
         },
         json: true
     });
 }
 
-module.exports = router;
+function sendPushFailed(user) {
+    return request({
+        method: "POST",
+        url: "http://localhost:3000/api/data/push",
+        headers: {
+            "X-Parse-Application-Id": APP_ID,
+            "X-Parse-Master-Key": MASTER_KEY
+        },
+        body: {
+            "where": {
+                "user": user
+            },
+            "data": {
+                "type": "ocrFailed",
+                "content-available": 1,
+                "sound": "default",
+                "alert": {
+                    "loc-key": "locKey.ocrFailed"
+                }
+            }
+        },
+        json: true
+    });
+}

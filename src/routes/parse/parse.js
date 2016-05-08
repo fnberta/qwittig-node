@@ -4,14 +4,14 @@ const iosDevCert = path.resolve(__dirname, '../../../cert/ParsePushDevelopmentCe
 const iosProdCert = path.resolve(__dirname, '../../../cert/ParsePushProductionCertificate.p12');
 const cloudCode = path.resolve(__dirname, './cloudcode/main.js');
 
-const appId = 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji';
-const masterKey = 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK';
+export const APP_ID = 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji';
+export const MASTER_KEY = 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK';
 
-const parseApi = new ParseServer({
+export const parseApi = new ParseServer({
     databaseURI: 'mongodb://parse:phusPAJ4drufuka4haye@localhost:27017/qwittig',
     cloud: cloudCode,
-    appId: appId,
-    masterKey: masterKey,
+    appId: APP_ID,
+    masterKey: MASTER_KEY,
     serverURL: 'http://localhost:3000/api/data',
     push: {
         android: {
@@ -36,7 +36,4 @@ const parseApi = new ParseServer({
             appIds: '483474338502548'
         }
     }
-
 });
-
-module.exports = parseApi;
