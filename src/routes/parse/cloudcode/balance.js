@@ -78,9 +78,12 @@ function calculateBalancePurchases(purchase, identity) {
     const items = purchase.items;
 
     for (let item of items) {
-        const price = new Fraction(item.price);
         const identitiesIds = item.getIdentitiesIds();
+        if (isEmpty(identitiesIds)) {
+            continue
+        }
 
+        const price = new Fraction(item.price);
         if (buyer.id == identity.id) {
             balance = includes(identitiesIds, identity.id)
                 ? balance.add(price.sub(price.div(identitiesIds.length)))
