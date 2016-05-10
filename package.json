@@ -17,7 +17,8 @@
     "multer": "^1.1.0",
     "mz": "^2.4.0",
     "parse-server": "^2.1.4",
-    "request-promise": "^3.0.0"
+    "request-promise": "^3.0.0",
+    "body-parser": "latest"
   },
   "devDependencies": {
     "babel-cli": "^6.7.5",
