@@ -34,26 +34,21 @@ export function calculateAndSetBalance(group, identities) {
 }
 
 function calculateBalance(purchases, identities, compensations) {
-    let promise = Parse.Promise.as();
+    const promises = identities.map(identity => {
+        let balance = new Fraction(0);
 
-    for (let identity of identities) {
-        promise = promise
-            .then(() => {
-                let balance = new Fraction(0);
+        for (let compensation of compensations) {
+            balance = balance.add(calculateBalanceCompensations(compensation, identity));
+        }
 
-                for (let compensation of compensations) {
-                    balance = balance.add(calculateBalanceCompensations(compensation, identity));
-                }
+        for (let purchase of purchases) {
+            balance = balance.add(calculateBalancePurchases(purchase, identity));
+        }
 
-                for (let purchase of purchases) {
-                    balance = balance.add(calculateBalancePurchases(purchase, identity));
-                }
+        return setBalance(balance, identity);
+    });
 
-                return setBalance(balance, identity);
-            });
-    }
-
-    return promise;
+    return Parse.Promise.when(promises);
 }
 
 function calculateBalanceCompensations(compensation, identity) {

@@ -29,7 +29,7 @@ import {
     beforeDelete as userBeforeDelete,
     afterDelete as userAfterDelete
 } from './hooks/userHooks';
-import {calculateSpendingStats, calculateStoreOrCurrencyStats} from './stats'
+import {statsSpending, statsStores, statsCurrencies} from './functions/statsFunctions'
 import {remindComp, remindTask} from './functions/remindFunctions'
 import {
     calculateBalancesForGroup,
@@ -94,33 +94,6 @@ Parse.Cloud.define('loginWithGoogle', loginWithGoogle);
 Parse.Cloud.define('setPassword', setPassword);
 Parse.Cloud.define('cleanUpIdentities', cleanUpIdentities);
 
-Parse.Cloud.define('statsSpending', function (request, response) {
-    const groupId = request.params.groupId;
-    const year = request.params.year;
-    const month = request.params.month;
-
-    calculateSpendingStats(groupId, year, month)
-        .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
-});
-Parse.Cloud.define('statsStores', function (request, response) {
-    const groupId = request.params.groupId;
-    const year = request.params.year;
-    const month = request.params.month;
-    const statsType = 'store';
-
-    calculateStoreOrCurrencyStats(statsType, groupId, year, month)
-        .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
-});
-Parse.Cloud.define('statsCurrencies', function (request, response) {
-    const groupId = request.params.groupId;
-    const year = request.params.year;
-    const month = request.params.month;
-    const statsType = 'currency';
-
-    calculateStoreOrCurrencyStats(statsType, groupId, year, month)
-        .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
-});
-
+Parse.Cloud.define('statsSpending', statsSpending);
+Parse.Cloud.define('statsStores', statsStores);
+Parse.Cloud.define('statsCurrencies', statsCurrencies());

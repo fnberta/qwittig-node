@@ -17,9 +17,9 @@ export function calculateBalancesForGroup(request, response) {
             const query = new Parse.Query(Identity);
             query.equalTo('group', identity.group);
             query.equalTo('active', true);
-            return query.find({useMasterKey: true})
-                .then(identities => calculateAndSetBalance(identity.group, identities));
+            return Parse.Promise.all([identity, query.find({useMasterKey: true})])
         })
+        .then(([identity, identities]) => calculateAndSetBalance(identity.group, identities))
         .then(() => response.success('Balances were calculated successfully.'))
         .catch(err => response.error('Failed to calculate balances with error: ' + err.message));
 }
@@ -55,9 +55,9 @@ export function addIdentityToUser(request, response) {
                 return Parse.Promise.error({'message': 'Identity is not pending!'});
             }
 
-            return addUserToGroupRole(user, newIdentity.group.id)
-                .then(role => addIdentity(user, newIdentity, role));
+            return Parse.Promise.all([user, newIdentity, addUserToGroupRole(user, newIdentity.group.id)]);
         })
+        .then(([user, newIdentity, role]) => addIdentity(user, newIdentity, role))
         .then(() => response.success('Successfully added identity to user.'))
         .catch(err => response.error('Failed to add identity to user with error: ' + err.message));
 }
@@ -99,28 +99,13 @@ export function addGroup(request, response) {
     const name = request.params.groupName;
     const currency = request.params.currencyCode;
 
-    // return createGroup(name, currency)
-    //     .then(group => Promise.all([group, createGroupRole(group, user)]))
-    //     .then(([group, groupRole]) => setGroupAcl(group))
-    //     .then(group => Promise.all([group, getCurrentIdentity(user)]))
-    //     .then(([group, currentIdentity]) => currentIdentity != null
-    //         ? createIdentity(user, group, currentIdentity.nickname, currentIdentity.avatar)
-    //         : createIdentity(user, group))
-    //     .then(identity => setIdentity(user, identity))
-    //     .then(() => response.success('Successfully create new group and identity.'))
-    //     .catch(err => response.error('Failed to add new group and identity with error: ' + err.message));
-
     return createGroup(name, currency)
-        .then(group => {
-            return createGroupRole(group, user)
-                .then(() => setGroupAcl(group));
-        })
-        .then(group => {
-            return getCurrentIdentity(user)
-                .then(currentIdentity => currentIdentity != null
-                    ? createIdentity(user, group, currentIdentity.nickname, currentIdentity.avatar)
-                    : createIdentity(user, group));
-        })
+        .then(group => Parse.Promise.all([group, createGroupRole(group, user)]))
+        .then(([group, groupRole]) => setGroupAcl(group))
+        .then(group => Parse.Promise.all([group, getCurrentIdentity(user)]))
+        .then(([group, currentIdentity]) => currentIdentity != null
+            ? createIdentity(user, group, currentIdentity.nickname, currentIdentity.avatar)
+            : createIdentity(user, group))
         .then(identity => setIdentity(user, identity))
         .then(() => response.success('Successfully create new group and identity.'))
         .catch(err => response.error('Failed to add new group and identity with error: ' + err.message));

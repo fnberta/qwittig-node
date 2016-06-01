@@ -19,14 +19,14 @@ import {getGroupRole} from '../utils';
  */
 export function beforeSave(request, response) {
     const group = request.object;
-    if (group.isNew()) {
+    if (group.isNew() || !group.dirty('name')) {
         response.success();
         return;
     }
 
-    group.dirty('name') ? sendPushGroupNameChanged(group) : Parse.Promise.as()
+    sendPushGroupNameChanged(group)
         .then(() => response.success())
-        .catch(err => response.error(err.message));
+        .catch(err => response.error('Failed to send push with error: ' + err.message));
 }
 
 function sendPushGroupNameChanged(group) {

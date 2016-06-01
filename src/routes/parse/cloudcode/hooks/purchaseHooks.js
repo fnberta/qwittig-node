@@ -4,7 +4,7 @@
 
 import {includes} from 'lodash';
 import {calculateAndSetBalance, calculateCompensations} from '../balance';
-import {deleteParseFile} from '../utils'
+import {deleteParseFile, getUserFromIdentity} from '../utils'
 
 export function beforeSave(request, response) {
     const purchase = request.object;
@@ -19,28 +19,14 @@ export function beforeSave(request, response) {
 }
 
 function checkIdentities(purchase) {
-    // const promises = purchase.identities.map(identity => {
-    //     return identity.fetch({useMasterKey: true})
-    //         .then(identity => identity.active == false
-    //             ? Parse.Promise.error({'message': "Purchase has inactive identities, can't change it!"})
-    //             : Parse.Promise.as());
-    // });
-    //
-    // return Parse.Promise.when(promises);
+    const promises = purchase.identities.map(identity => {
+        return identity.fetch({useMasterKey: true})
+            .then(identity => identity.active == false
+                ? Parse.Promise.error({'message': "Purchase has inactive identities, can't change it!"})
+                : Parse.Promise.as());
+    });
 
-    const identities = purchase.identities;
-    let promise = Parse.Promise.as();
-    for (let identity of identities) {
-        promise = promise
-            .then(() => {
-                return identity.fetch({useMasterKey: true})
-                    .then(identity => identity.active == false
-                        ? Parse.Promise.error({'message': "Purchase has inactive identities, can't change it!"})
-                        : Parse.Promise.as());
-            });
-    }
-
-    return promise;
+    return Parse.Promise.when(promises);
 }
 
 /**
@@ -60,15 +46,22 @@ export function afterSave(request) {
 
     calculateAndSetBalance(purchase.group, identities)
         .then(() => calculateCompensations(purchase.group))
-        .then(() => purchase.existed()
-            ? sendPushPurchaseEdited(purchase, identitiesIds)
-            : sendPushNewPurchase(purchase, identitiesIds));
+        .then(() => {
+            if (!purchase.existed()) {
+                return sendPushNewPurchase(purchase, identitiesIds)
+            }
+
+            const user = request.user;
+            return getUserFromIdentity(purchase.buyer)
+                .then(buyerUser => user.id == buyerUser.id
+                    ? sendPushPurchaseEdited(purchase, identitiesIds)
+                    : sendPushReadByChanged(purchase, user));
+        });
 }
 
 function sendPushPurchaseEdited(purchase, identitiesIds) {
     return Parse.Promise.when(purchase.buyer.fetch({useMasterKey: true}), purchase.group.fetch({useMasterKey: true}))
         .then((buyer, group) => {
-            // TODO: send visible notification
             return Parse.Push.send({
                 channels: [group.id],
                 data: {
@@ -79,8 +72,14 @@ function sendPushPurchaseEdited(purchase, identitiesIds) {
                         "loc-key": "locKey.purchaseEdit",
                         "loc-args": [buyer.nickname]
                     },
+                    currencyCode: group.currency,
                     purchaseId: purchase.id,
-                    identitiesIds: identitiesIds
+                    groupId: group.id,
+                    buyerId: buyer.id,
+                    groupName: group.name,
+                    identitiesIds: identitiesIds,
+                    user: buyer.nickname,
+                    store: purchase.store
                 }
             }, {useMasterKey: true});
         });
@@ -116,6 +115,20 @@ function sendPushNewPurchase(purchase, identitiesIds) {
                 }
             }, {useMasterKey: true});
         });
+}
+
+function sendPushReadByChanged(purchase, user) {
+    const pushQuery = new Parse.Query(Parse.Installation);
+    pushQuery.equalTo('user', user);
+
+    return Parse.Push.send({
+        where: pushQuery,
+        data: {
+            type: "purchaseReadByChanged",
+            "content-available": 1,
+            purchaseId: purchase.id
+        }
+    }, {useMasterKey: true});
 }
 
 /**

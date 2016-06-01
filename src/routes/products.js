@@ -20,11 +20,7 @@ router.post('/product', function (req, res, next) {
     }
 
     addProducts(products)
-        .then(() => {
-            res.set("Access-Control-Allow-Origin", "*");
-            res.set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-            res.sendStatus(200)
-        })
+        .then(() => res.sendStatus(200))
         .catch(err => next(err))
 });
 

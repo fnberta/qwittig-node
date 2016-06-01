@@ -32,12 +32,10 @@ function checkArchivedIdentities(user, oldUser) {
         for (let identityId of newlyArchivedIds) {
             const identity = getIdentityPointerFromId(identityId);
             identity.fetch({useMasterKey: true})
-                .then(identity => {
-                    return sendPushUserLeftGroup(identity.group, identity.nickname)
-                        .then(() => identity.group.destroy({useMasterKey: true}));
-                    // group beforeDelete handler will make sure that group only gets deleted if it contains no
-                    // active identities
-                });
+                .then(identity => Parse.Promise.all([identity, sendPushUserLeftGroup(identity.group, identity.nickname)]))
+                // group beforeDelete handler will make sure that group only gets deleted if it contains no
+                // active identities
+                .then(([identity, pushResult]) => identity.group.destroy({useMasterKey: true}));
         }
     }
 }
@@ -86,11 +84,26 @@ export function beforeDelete(request, response) {
         return;
     }
 
-    getCompensations(identities)
+    handleInstallations(user)
+        .then(() => getCompensations(identities))
         .then(compensations => isEmpty(compensations) ? Parse.Promise.as() : settleCompensations(compensations))
         .then(() => deactivateIdentities(identities))
         .then(() => response.success('Successfully settled compensations and disabled identities'))
         .catch(err => response.error('Failed to settle compensations and disable identities with error: ' + err.message));
+}
+
+function handleInstallations(user) {
+    const query = new Parse.Query(Parse.Installation);
+    query.equalTo('user', user);
+    return query.find({useMasterKey: true})
+        .then(installations => {
+            for (let installation of installations) {
+                installation.unset('user');
+                installation.unset('channels');
+            }
+
+            return Parse.Object.saveAll(installations, {useMasterKey: true});
+        });
 }
 
 function getCompensations(identities) {
@@ -124,16 +137,19 @@ function deactivateIdentities(identities) {
 export function afterDelete(request) {
     const user = request.object;
     const identities = user.get('identities');
-    for (let identity of identities) {
+    const promises = identities.map(identity => {
         identity.fetch({useMasterKey: true})
             .then(identity => {
                 identity.active = false;
-                return sendPushUserDeleted(identity.nickname, identity.group)
-                    .then(() => identity.group.destroy({useMasterKey: true}));
-                // group beforeDelete handler will make sure that group only gets deleted if it contains no
-                // active identities
-            });
-    }
+                return Parse.Promise.all([identity, sendPushUserDeleted(identity.nickname, identity.group)]);
+            })
+            // group beforeDelete handler will make sure that group only gets deleted if it contains no
+            // active identities
+            .then(([identity, pushResult]) => identity.group.destroy({useMasterKey: true}));
+    });
+
+    promises.push(deleteUserSessions(user));
+    return Parse.Promise.when(promises);
 }
 
 function sendPushUserDeleted(nickname, group) {
@@ -151,4 +167,11 @@ function sendPushUserDeleted(nickname, group) {
             user: nickname
         }
     }, {useMasterKey: true});
+}
+
+function deleteUserSessions(user) {
+    const query = new Parse.Query(Parse.Session);
+    query.equalTo('user', user);
+    return query.find({useMasterKey: true})
+        .then(sessions => Parse.Object.destroyAll(sessions, {useMasterKey: true}));
 }

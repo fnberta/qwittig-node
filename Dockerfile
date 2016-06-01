@@ -44,8 +44,8 @@ RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
 RUN echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.2 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.2.list
 RUN apt-get update && apt-get install -y mongodb-org
 
-## Install Node.js    
-RUN curl --silent --location https://deb.nodesource.com/setup_5.x | bash -
+## Install Node.js
+RUN curl --silent --location https://deb.nodesource.com/setup_6.x | bash -
 RUN apt-get install -y nodejs
 
 WORKDIR /opt/node
