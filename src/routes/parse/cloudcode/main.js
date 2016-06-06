@@ -96,4 +96,4 @@ Parse.Cloud.define('cleanUpIdentities', cleanUpIdentities);
 
 Parse.Cloud.define('statsSpending', statsSpending);
 Parse.Cloud.define('statsStores', statsStores);
-Parse.Cloud.define('statsCurrencies', statsCurrencies());
+Parse.Cloud.define('statsCurrencies', statsCurrencies);

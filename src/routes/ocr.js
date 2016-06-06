@@ -1,6 +1,7 @@
 const express = require('express');
 export const router = express.Router();
 const co = require('co');
+const fs = require('mz/fs');
 const request = require('request-promise');
 const execFile = require('mz/child_process').execFile;
 const path = require('path');
@@ -23,12 +24,14 @@ router.post('/receipt', receipts.single('receipt'), function (req, res, next) {
         return;
     }
 
+    const receiptPath = path.resolve(ROOT_PATH, receipt.path);
     co(function*() {
         const user = yield validateSessionToken(sessionToken);
         res.status(200).end();
         try {
-            const result = yield performOcr(receipt);
-            yield sendPushSuccessful(result, user);
+            const ocrData = yield performOcr(receiptPath);
+            const ocrPurchaseId = yield saveOcrPurchase(receiptPath, ocrData, user);
+            yield sendPushSuccessful(ocrPurchaseId, user);
         } catch (e) {
             yield sendPushFailed(user);
             next(e);
@@ -50,10 +53,9 @@ function validateSessionToken(sessionToken) {
         .then(response => response.user);
 }
 
-function performOcr(receipt) {
-    const imagePath = path.resolve(ROOT_PATH, receipt.path);
+function performOcr(receiptPath) {
     const scriptPath = path.resolve(ROOT_PATH, 'bin/Run.py');
-    const args = [imagePath];
+    const args = [receiptPath];
 
     return execFile(scriptPath, args, {cwd: path.resolve(ROOT_PATH, 'bin/')})
         .then(([stdout, stderr]) => {
@@ -65,7 +67,39 @@ function performOcr(receipt) {
         });
 }
 
-function sendPushSuccessful(data, user) {
+function saveOcrPurchase(receiptPath, ocrData, user) {
+    const fileName = "receipt.jpg";
+    return fs.readFile(receiptPath)
+        .then(buffer => request({
+                method: "POST",
+                url: `http://localhost:3000/api/data/files/${fileName}`,
+                headers: {
+                    "X-Parse-Application-Id": APP_ID,
+                    "Content-Type": "image/jpeg"
+                },
+                body: buffer
+            }))
+        .then(response => JSON.parse(response).name)
+        .then(fileName => request({
+                method: "POST",
+                url: "http://localhost:3000/api/data/classes/OcrPurchase",
+                headers: {
+                    "X-Parse-Application-Id": APP_ID
+                },
+                body: {
+                    "user": user,
+                    "data": ocrData,
+                    "receipt": {
+                        "name": fileName,
+                        "__type": "File"
+                    }
+                },
+                json: true
+            }))
+        .then(result => result.objectId)
+}
+
+function sendPushSuccessful(ocrPurchaseId, user) {
     return request({
         method: "POST",
         url: "http://localhost:3000/api/data/push",
@@ -84,10 +118,7 @@ function sendPushSuccessful(data, user) {
                 "alert": {
                     "loc-key": "locKey.ocrSucceeded"
                 },
-                "confidentiality": data.confidentiality,
-                "store": data.store,
-                "totalPrice": data.total,
-                "items": data.items
+                "ocrPurchaseId": ocrPurchaseId
             }
         },
         json: true

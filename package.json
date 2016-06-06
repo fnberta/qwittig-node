@@ -6,7 +6,9 @@
     "dev": "DEBUG=* VERBOSE=1 babel-node src/server.js",
     "build": "rm -rf build && mkdir build && babel src -d build",
     "production": "pm2 startOrRestart process.json --env production",
-    "deploy": "bash deploy.sh"
+    "deploy": "bash deploy.sh",
+    "dev:mongodb": " mongod --config /usr/local/etc/mongod.conf",
+    "dev:dashboard": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'http://localhost:3000/api/data'"
   },
   "dependencies": {
     "co": "^4.6.0",
