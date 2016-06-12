@@ -15,8 +15,8 @@ export const parseApi = new ParseServer({
     serverURL: 'http://localhost:3000/api/data',
     push: {
         android: {
-            senderId: '982871908066',
-            apiKey: 'AIzaSyAWyVYqTSrEZavQBYa298ru835D_cswig8'
+            senderId: '1027430235430',
+            apiKey: 'AIzaSyBVubQGgKNPxpvMz_bR6bRtDjf1ka5bwYo'
         },
         ios: [
             {

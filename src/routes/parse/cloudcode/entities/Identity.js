@@ -12,6 +12,7 @@ export const GROUP = 'group';
 export const NICKNAME = 'nickname';
 export const AVATAR = 'avatar';
 export const BALANCE = 'balance';
+export const INVITATION_LINK = 'invitationLink';
 
 export default class Identity extends Parse.Object {
     constructor() {
@@ -19,43 +20,46 @@ export default class Identity extends Parse.Object {
     }
 
     get active() {
-        return this.get(ACTIVE)
+        return this.get(ACTIVE);
     }
 
     set active(active) {
-        this.set(ACTIVE, active)
+        this.set(ACTIVE, active);
     }
 
     get pending() {
-        return this.get(PENDING)
+        return this.get(PENDING);
     }
 
     set pending(pending) {
-        this.set(PENDING, pending)
+        this.set(PENDING, pending);
+        if (!pending) {
+            this.unset(INVITATION_LINK);
+        }
     }
 
     get group() {
-        return this.get(GROUP)
+        return this.get(GROUP);
     }
 
     set group(group) {
-        this.set(GROUP, group)
+        this.set(GROUP, group);
     }
 
     get nickname() {
-        return this.get(NICKNAME)
+        return this.get(NICKNAME);
     }
 
     set nickname(nickname) {
-        this.set(NICKNAME, nickname)
+        this.set(NICKNAME, nickname);
     }
 
     get avatar() {
-        return this.get(AVATAR)
+        return this.get(AVATAR);
     }
 
     set avatar(avatar) {
-        this.set(AVATAR, avatar)
+        this.set(AVATAR, avatar);
     }
 
     get balance() {

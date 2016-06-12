@@ -2,7 +2,7 @@
  * Created by fabio on 09.05.16.
  */
 
-import {includes} from 'lodash';
+import {includes, isEmpty} from 'lodash';
 import {getGroupPointerFromId, getIdentityPointerFromId, getGroupRole, getGroupRoleName} from '../utils';
 import {calculateAndSetBalance, calculateCompensations} from '../balance'
 import Identity from '../entities/Identity';
@@ -39,7 +39,7 @@ export function addIdentityToUser(request, response) {
     const identityId = request.params.identityId;
 
     const identities = user.get('identities');
-    const promises = identities.map(identity => identity.fetch({useMasterKey: true}));
+    const promises = !isEmpty(identities) ? identities.map(identity => identity.fetch({useMasterKey: true})) : [];
     const newIdentity = getIdentityPointerFromId(identityId);
     promises.push(newIdentity.fetch({useMasterKey: true}));
     Parse.Promise.when(promises)
@@ -71,13 +71,17 @@ function addUserToGroupRole(user, groupId) {
 }
 
 function addIdentity(user, identity, role) {
-    return user.get('currentIdentity').fetch({useMasterKey: true})
+    const currentIdentity = user.get('currentIdentity');
+    const promise = currentIdentity != null ? currentIdentity.fetch({useMasterKey: true}) : Parse.Promise.as();
+    return promise
         .then(currentIdentity => {
-            if (currentIdentity.nickname != null) {
-                identity.nickname = currentIdentity.nickname;
-            }
-            if (currentIdentity.avatar != null) {
-                identity.avatar = currentIdentity.avatar;
+            if (currentIdentity != null) {
+                if (currentIdentity.nickname != null) {
+                    identity.nickname = currentIdentity.nickname;
+                }
+                if (currentIdentity.avatar != null) {
+                    identity.avatar = currentIdentity.avatar;
+                }
             }
             identity.pending = false;
             const acl = identity.getACL();
@@ -176,8 +180,8 @@ function setIdentity(user, identity) {
 
 export function loginWithGoogle(request, response) {
     const idToken = request.params.idToken;
-    const clientIds = ['982871908066-1scsmdngvfsj68t7kq5o42t35oubujme.apps.googleusercontent.com',
-        '982871908066-0g1m4dj80me2thbb3ov8v0h63a6g4kkp.apps.googleusercontent.com'];
+    const clientIds = ['1027430235430-okb37db00d2vis3m1ci91ct1qc49gc5q.apps.googleusercontent.com',
+        '1027430235430-8qsjo8v2pk3l0adqat5q8i7m3e31elvq.apps.googleusercontent.com'];
 
     verifyIdToken(idToken)
         .then(httpResponse => {
@@ -186,8 +190,8 @@ export function loginWithGoogle(request, response) {
             }
 
             const token = httpResponse.data;
-            if (!includes(clientIds, token.aud)) {
-                return Parse.Promise.error({message: 'aud does not match'});
+            if (!includes(clientIds, token.azp)) {
+                return Parse.Promise.error({message: 'azp does not match'});
             }
 
             const googleId = token.sub;
@@ -195,7 +199,7 @@ export function loginWithGoogle(request, response) {
             return upsertGoogleUser(googleId, email);
         })
         .then(user => response.success(user.getSessionToken()))
-        .catch(err => response.error('idToken could not be verified with error ' + err.message));
+        .catch(err => response.error('idToken could not be verified with error: ' + err.message));
 }
 
 function verifyIdToken(idToken) {

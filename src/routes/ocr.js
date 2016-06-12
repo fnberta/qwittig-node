@@ -9,6 +9,7 @@ const multer = require('multer');
 const receipts = multer({dest: './receipts/'});
 import {MASTER_KEY} from './parse/parse.js'
 import {APP_ID} from './parse/parse.js'
+import {isEmpty} from 'lodash'
 
 const ROOT_PATH = path.resolve(__dirname, '../../');
 
@@ -29,9 +30,9 @@ router.post('/receipt', receipts.single('receipt'), function (req, res, next) {
         const user = yield validateSessionToken(sessionToken);
         res.status(200).end();
         try {
-            const ocrData = yield performOcr(receiptPath);
-            const ocrPurchaseId = yield saveOcrPurchase(receiptPath, ocrData, user);
-            yield sendPushSuccessful(ocrPurchaseId, user);
+            const ocr = yield performOcr(receiptPath);
+            const ocrDataId = yield saveOcrData(receiptPath, ocr, user);
+            yield sendPushSuccessful(ocrDataId, user);
         } catch (e) {
             yield sendPushFailed(user);
             next(e);
@@ -64,42 +65,49 @@ function performOcr(receiptPath) {
             }
 
             return JSON.parse(stdout);
+        })
+        .then(ocrData => {
+            if (isEmpty(ocrData.items)) {
+                throw new Error('No items found');
+            }
+
+            return ocrData;
         });
 }
 
-function saveOcrPurchase(receiptPath, ocrData, user) {
+function saveOcrData(receiptPath, ocr, user) {
     const fileName = "receipt.jpg";
     return fs.readFile(receiptPath)
         .then(buffer => request({
-                method: "POST",
-                url: `http://localhost:3000/api/data/files/${fileName}`,
-                headers: {
-                    "X-Parse-Application-Id": APP_ID,
-                    "Content-Type": "image/jpeg"
-                },
-                body: buffer
-            }))
+            method: "POST",
+            url: `http://localhost:3000/api/data/files/${fileName}`,
+            headers: {
+                "X-Parse-Application-Id": APP_ID,
+                "Content-Type": "image/jpeg"
+            },
+            body: buffer
+        }))
         .then(response => JSON.parse(response).name)
         .then(fileName => request({
-                method: "POST",
-                url: "http://localhost:3000/api/data/classes/OcrPurchase",
-                headers: {
-                    "X-Parse-Application-Id": APP_ID
-                },
-                body: {
-                    "user": user,
-                    "data": ocrData,
-                    "receipt": {
-                        "name": fileName,
-                        "__type": "File"
-                    }
-                },
-                json: true
-            }))
+            method: "POST",
+            url: "http://localhost:3000/api/data/classes/OcrData",
+            headers: {
+                "X-Parse-Application-Id": APP_ID
+            },
+            body: {
+                "user": user,
+                "data": ocr,
+                "receipt": {
+                    "name": fileName,
+                    "__type": "File"
+                }
+            },
+            json: true
+        }))
         .then(result => result.objectId)
 }
 
-function sendPushSuccessful(ocrPurchaseId, user) {
+function sendPushSuccessful(ocrDataId, user) {
     return request({
         method: "POST",
         url: "http://localhost:3000/api/data/push",
@@ -118,7 +126,7 @@ function sendPushSuccessful(ocrPurchaseId, user) {
                 "alert": {
                     "loc-key": "locKey.ocrSucceeded"
                 },
-                "ocrPurchaseId": ocrPurchaseId
+                "ocrDataId": ocrDataId
             }
         },
         json: true

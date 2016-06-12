@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "Qwittig Server",
+      "name": "qwittig-node",
       "script": "build/server.js",
       "watch": false,
       "env": {

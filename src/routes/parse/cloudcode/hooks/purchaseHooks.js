@@ -169,15 +169,22 @@ export function afterDelete(request) {
 }
 
 function sendPushPurchaseDeleted(purchase, identitiesIds) {
-    return Parse.Push.send({
-        channels: [purchase.group.id],
-        data: {
-            type: "purchaseDelete",
-            "content-available": 1,
-            sound: "default",
-            purchaseId: purchase.id,
-            groupId: purchase.group.id,
-            identitiesIds: identitiesIds
-        }
-    }, {useMasterKey: true});
+    purchase.buyer.fetch({useMasterKey: true})
+        .then(buyer => {
+            return Parse.Push.send({
+                channels: [purchase.group.id],
+                data: {
+                    type: "purchaseDelete",
+                    "content-available": 1,
+                    sound: "default",
+                    alert: {
+                        "loc-key": "locKey.purchaseDelete",
+                        "loc-args": [buyer.nickname]
+                    },
+                    purchaseId: purchase.id,
+                    groupId: purchase.group.id,
+                    identitiesIds: identitiesIds
+                }
+            }, {useMasterKey: true});
+        });
 }
