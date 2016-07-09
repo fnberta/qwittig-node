@@ -11,7 +11,7 @@ const app = express();
 
 app.use(morgan('dev'));
 
-app.use('/', apple);
+// app.use('/', apple);
 app.use('/api', ocr);
 app.use('/api', product);
 app.use('/api/data', parseApi);

@@ -180,8 +180,9 @@ function setIdentity(user, identity) {
 
 export function loginWithGoogle(request, response) {
     const idToken = request.params.idToken;
-    const clientIds = ['1027430235430-okb37db00d2vis3m1ci91ct1qc49gc5q.apps.googleusercontent.com',
-        '1027430235430-8qsjo8v2pk3l0adqat5q8i7m3e31elvq.apps.googleusercontent.com'];
+    const clientIds = ['1032365366003-d8rkjlrho0hnfos18b0fl1tol12khctp.apps.googleusercontent.com',
+        '1032365366003-qpqmsm902h6em2vdk1m9lhvm15bm87ef.apps.googleusercontent.com',
+        '1032365366003-6up7r81jifp4baso9kgosp10hnb90njg.apps.googleusercontent.com'];
 
     verifyIdToken(idToken)
         .then(httpResponse => {

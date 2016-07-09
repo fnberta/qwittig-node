@@ -7,25 +7,25 @@
     "build": "rm -rf build && mkdir build && babel src -d build",
     "production": "pm2 startOrRestart process.json --env production",
     "deploy": "bash deploy.sh",
-    "dev:mongodb": " mongod --config /usr/local/etc/mongod.conf",
+    "dev:mongodb": "mongod --config /usr/local/etc/mongod.conf",
     "dev:dashboard-local": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'http://localhost:3000/api/data' --appName 'Qwittig'",
     "dev:dashboard-remote": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'https://qwittig.com/api/data' --appName 'Qwittig'"
   },
   "dependencies": {
     "co": "^4.6.0",
-    "express": "^4.13.4",
+    "express": "^4.14.0",
     "fraction.js": "^3.3.1",
     "lodash": "^4.13.1",
     "morgan": "^1.7.0",
     "multer": "^1.1.0",
     "mz": "^2.4.0",
-    "parse-server": "^2.2.12",
+    "parse-server": "^2.2.13",
     "request-promise": "^3.0.0",
     "body-parser": "latest"
   },
   "devDependencies": {
     "babel-cli": "^6.10.1",
-    "babel-preset-es2015-node5": "^1.2.0",
+    "babel-preset-es2015-node6": "^0.2.0",
     "nodemon": "^1.9.2",
     "debug": "latest"
   }
