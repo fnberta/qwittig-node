@@ -48,22 +48,30 @@ export function afterSave(request) {
         .then(() => calculateCompensations(purchase.group))
         .then(() => {
             if (!purchase.existed()) {
-                return sendPushNewPurchase(purchase, identitiesIds)
+                return sendPushNewPurchase(purchase, identities, identitiesIds)
             }
 
             const user = request.user;
             return getUserFromIdentity(purchase.buyer)
                 .then(buyerUser => user.id == buyerUser.id
-                    ? sendPushPurchaseEdited(purchase, identitiesIds)
+                    ? sendPushPurchaseEdited(purchase, identities, identitiesIds)
                     : sendPushReadByChanged(purchase, user));
         });
 }
 
-function sendPushPurchaseEdited(purchase, identitiesIds) {
-    return Parse.Promise.when(purchase.buyer.fetch({useMasterKey: true}), purchase.group.fetch({useMasterKey: true}))
-        .then((buyer, group) => {
-            return Parse.Push.send({
-                channels: [group.id],
+function sendPushPurchaseEdited(purchase, identities, identitiesIds) {
+    const getUsers = identities.map(identity => getUserFromIdentity(identity));
+    return Parse.Promise.when([...getUsers, purchase.buyer.fetch({useMasterKey: true}), purchase.group.fetch({useMasterKey: true})])
+        .then(fetches => {
+            const group = fetches.pop();
+            const buyer = fetches.pop();
+            const promises = [];
+
+            const involvedQuery = new Parse.Query(Parse.Installation);
+            involvedQuery.equalTo('channels', group.id);
+            involvedQuery.containedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: involvedQuery,
                 data: {
                     type: "purchaseEdit",
                     "content-available": 1,
@@ -81,20 +89,49 @@ function sendPushPurchaseEdited(purchase, identitiesIds) {
                     user: buyer.nickname,
                     store: purchase.store
                 }
-            }, {useMasterKey: true});
+            }, {useMasterKey: true}));
+
+            const notInvolvedQuery = new Parse.Query(Parse.Installation);
+            notInvolvedQuery.equalTo('channels', group.id);
+            notInvolvedQuery.notContainedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: notInvolvedQuery,
+                data: {
+                    type: "purchaseEdit",
+                    "content-available": 1,
+                    currencyCode: group.currency,
+                    purchaseId: purchase.id,
+                    groupId: group.id,
+                    buyerId: buyer.id,
+                    groupName: group.name,
+                    identitiesIds: identitiesIds,
+                    user: buyer.nickname,
+                    store: purchase.store
+                }
+            }, {useMasterKey: true}));
+
+            return Parse.Promise.when(promises);
         });
 }
 
-function sendPushNewPurchase(purchase, identitiesIds) {
+function sendPushNewPurchase(purchase, identities, identitiesIds) {
     let totalPrice = purchase.totalPrice;
     if (totalPrice == null) {
         totalPrice = 0;
     }
 
-    return Parse.Promise.when(purchase.buyer.fetch({useMasterKey: true}), purchase.group.fetch({useMasterKey: true}))
-        .then((buyer, group) => {
-            return Parse.Push.send({
-                channels: [group.id],
+    const getUsers = identities.map(identity => getUserFromIdentity(identity));
+    return Parse.Promise.when([...getUsers, purchase.buyer.fetch({useMasterKey: true}), purchase.group.fetch({useMasterKey: true})])
+        .then(fetches => {
+            const group = fetches.pop();
+            const buyer = fetches.pop();
+            const promises = [];
+
+            const involvedQuery = new Parse.Query(Parse.Installation);
+            involvedQuery.equalTo('channels', group.id);
+            involvedQuery.containedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: involvedQuery,
                 data: {
                     type: "purchaseNew",
                     "content-available": 1,
@@ -113,7 +150,29 @@ function sendPushNewPurchase(purchase, identitiesIds) {
                     store: purchase.store,
                     amount: totalPrice
                 }
-            }, {useMasterKey: true});
+            }, {useMasterKey: true}));
+
+            const notInvolvedQuery = new Parse.Query(Parse.Installation);
+            notInvolvedQuery.equalTo('channels', group.id);
+            notInvolvedQuery.notContainedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: notInvolvedQuery,
+                data: {
+                    type: "purchaseNew",
+                    "content-available": 1,
+                    currencyCode: group.currency,
+                    purchaseId: purchase.id,
+                    groupId: group.id,
+                    buyerId: buyer.id,
+                    groupName: group.name,
+                    identitiesIds: identitiesIds,
+                    user: buyer.nickname,
+                    store: purchase.store,
+                    amount: totalPrice
+                }
+            }, {useMasterKey: true}));
+
+            return Parse.Promise.when(promises);
         });
 }
 
@@ -165,14 +224,21 @@ export function afterDelete(request) {
 
     calculateAndSetBalance(purchase.group, identities)
         .then(() => calculateCompensations(purchase.group))
-        .then(() => sendPushPurchaseDeleted(purchase, identitiesIds));
+        .then(() => sendPushPurchaseDeleted(purchase, identities, identitiesIds));
 }
 
-function sendPushPurchaseDeleted(purchase, identitiesIds) {
-    purchase.buyer.fetch({useMasterKey: true})
-        .then(buyer => {
-            return Parse.Push.send({
-                channels: [purchase.group.id],
+function sendPushPurchaseDeleted(purchase, identities, identitiesIds) {
+    const getUsers = identities.map(identity => getUserFromIdentity(identity));
+    return Parse.Promise.when([...getUsers, purchase.buyer.fetch({useMasterKey: true})])
+        .then(fetches => {
+            const buyer = fetches.pop();
+            const promises = [];
+
+            const involvedQuery = new Parse.Query(Parse.Installation);
+            involvedQuery.equalTo('channels', purchase.group.id);
+            involvedQuery.containedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: involvedQuery,
                 data: {
                     type: "purchaseDelete",
                     "content-available": 1,
@@ -185,6 +251,22 @@ function sendPushPurchaseDeleted(purchase, identitiesIds) {
                     groupId: purchase.group.id,
                     identitiesIds: identitiesIds
                 }
-            }, {useMasterKey: true});
+            }, {useMasterKey: true}));
+
+            const notInvolvedQuery = new Parse.Query(Parse.Installation);
+            notInvolvedQuery.equalTo('channels', purchase.group.id);
+            notInvolvedQuery.notContainedIn('user', fetches);
+            promises.push(Parse.Push.send({
+                where: notInvolvedQuery,
+                data: {
+                    type: "purchaseDelete",
+                    "content-available": 1,
+                    purchaseId: purchase.id,
+                    groupId: purchase.group.id,
+                    identitiesIds: identitiesIds
+                }
+            }, {useMasterKey: true}));
+
+            return Parse.Promise.when(promises);
         });
 }
