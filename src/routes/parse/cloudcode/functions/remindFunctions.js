@@ -12,7 +12,10 @@ export function remindComp(request, response) {
     comp.fetch({useMasterKey: true})
         .then(comp => sendCompRemindPush(comp, currencyCode))
         .then(() => response.success('Push was sent successfully'))
-        .catch(err => response.error('Push failed to send with error: ' + err.message));
+        .catch(err => {
+            console.error('Push failed to send with error: ', err);
+            response.error('Push failed to send with error: ' + err.message);
+        });
 }
 
 function sendCompRemindPush(compensation, currencyCode) {
@@ -49,7 +52,10 @@ export function remindTask(request, response) {
     Parse.Promise.when(task.fetch({useMasterKey: true}), reminder.get('currentIdentity').fetch({useMasterKey: true}))
         .then((task, identity) => sendTaskRemindPush(task, identity))
         .then(() => response.success('Push was sent successfully'))
-        .catch(err => response.error('Push failed to send with error: ' + err.message));
+        .catch(err => {
+            console.error('Push failed to send with error: ', err);
+            response.error('Push failed to send with error: ' + err.message);
+        });
 }
 
 function sendTaskRemindPush(task, reminderIdentity) {

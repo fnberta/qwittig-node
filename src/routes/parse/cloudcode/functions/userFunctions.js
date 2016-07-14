@@ -21,7 +21,10 @@ export function calculateBalancesForGroup(request, response) {
         })
         .then(([identity, identities]) => calculateAndSetBalance(identity.group, identities))
         .then(() => response.success('Balances were calculated successfully.'))
-        .catch(err => response.error('Failed to calculate balances with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed to calculate balances with error:', err);
+            response.error('Failed to calculate balances with error: ' + err.message);
+        });
 }
 
 export function calculateCompensationsForGroup(request, response) {
@@ -31,7 +34,10 @@ export function calculateCompensationsForGroup(request, response) {
     group.fetch({useMasterKey: true})
         .then(group => calculateCompensations(group))
         .then(() => response.success('Compensations were successfully calculated'))
-        .catch(err => response.error('Failed to calculate compensations with error ' + err.message));
+        .catch(err => {
+            console.error('Failed to calculate compensations with error:', err);
+            response.error('Failed to calculate compensations with error: ' + err.message);
+        });
 }
 
 export function addIdentityToUser(request, response) {
@@ -59,7 +65,10 @@ export function addIdentityToUser(request, response) {
         })
         .then(([user, newIdentity, role]) => addIdentity(user, newIdentity, role))
         .then(() => response.success('Successfully added identity to user.'))
-        .catch(err => response.error('Failed to add identity to user with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed to add identity to user with error: ', err);
+            response.error('Failed to add identity to user with error: ' + err.message);
+        });
 }
 
 function addUserToGroupRole(user, groupId) {
@@ -112,7 +121,10 @@ export function addGroup(request, response) {
             : createIdentity(user, group))
         .then(identity => setIdentity(user, identity))
         .then(() => response.success('Successfully create new group and identity.'))
-        .catch(err => response.error('Failed to add new group and identity with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed to add new group and identity with error: ', err);
+            response.error('Failed to add new group and identity with error: ' + err.message);
+        });
 }
 
 function createGroup(name, currency) {
@@ -200,7 +212,10 @@ export function loginWithGoogle(request, response) {
             return upsertGoogleUser(googleId, email);
         })
         .then(user => response.success(user.getSessionToken()))
-        .catch(err => response.error('idToken could not be verified with error: ' + err.message));
+        .catch(err => {
+            console.error('idToken could not be verified with error: ', err);
+            response.error('idToken could not be verified with error: ' + err.message);
+        });
 }
 
 function verifyIdToken(idToken) {
@@ -252,7 +267,10 @@ export function setPassword(request, response) {
             return user.save(null, {useMasterKey: true});
         })
         .then(() => response.success('password was set'))
-        .catch(err => response.error('setting of password failed with error ' + err.message));
+        .catch(err => {
+            console.error('Setting of password failed with error: ', err);
+            response.error('Setting of password failed with error: ' + err.message);
+        });
 }
 
 export function cleanUpIdentities(request, response) {
@@ -275,5 +293,8 @@ export function cleanUpIdentities(request, response) {
             return Parse.Promise.when(promises);
         })
         .then(() => response.success('Identities were cleaned up'))
-        .catch(err => response.error('Cleaning identities failed with error ' + err.message));
+        .catch(err => {
+            console.error('Cleaning identities failed with error: ', err);
+            response.error('Cleaning identities failed with error: ' + err.message);
+        });
 }

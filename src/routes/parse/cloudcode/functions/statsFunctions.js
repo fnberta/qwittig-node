@@ -11,7 +11,10 @@ export function statsSpending(request, response) {
 
     calculateSpendingStats(groupId, year, month)
         .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed with error: ', err);
+            response.error('Failed with error: ' + err.message);
+        });
 }
 
 export function statsStores(request, response) {
@@ -22,7 +25,10 @@ export function statsStores(request, response) {
 
     calculateStoreOrCurrencyStats(statsType, groupId, year, month)
         .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed with error: ', err);
+            response.error('Failed with error: ' + err.message);
+        });
 }
 
 export function statsCurrencies(request, response) {
@@ -33,6 +39,9 @@ export function statsCurrencies(request, response) {
 
     calculateStoreOrCurrencyStats(statsType, groupId, year, month)
         .then(result => response.success(JSON.stringify(result)))
-        .catch(err => response.error('Failed with error: ' + err.message));
+        .catch(err => {
+            console.error('Failed with error: ', err);
+            response.error('Failed with error: ' + err.message);
+        });
 }
 

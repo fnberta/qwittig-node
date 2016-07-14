@@ -24,6 +24,11 @@ import {
     afterDelete as taskAfterDelete,
     afterSaveHistory as taskHistoryAfterSave
 } from './hooks/taskHooks';
+import OcrData from './entities/OcrData';
+import OcrRating from './entities/OcrRating';
+import {beforeSave as ocrRatingBeforeSave, afterSave as ocrRatingAfterSave} from './hooks/ocrRatingHooks';
+import RatingSummary from './entities/RatingSummary';
+import {afterSave as summaryAfterSave} from './hooks/ratingSummaryHooks';
 import {
     afterSave as userAfterSave,
     beforeDelete as userBeforeDelete,
@@ -41,6 +46,7 @@ import {
     cleanUpIdentities
 } from './functions/userFunctions';
 import {deleteParseFile} from './utils';
+import {setOcrRatingUserFromOcrData} from './functions/ocrFunctions'
 
 Parse.Object.registerSubclass('Identity', Identity);
 Parse.Object.registerSubclass('Group', Group);
@@ -49,6 +55,9 @@ Parse.Object.registerSubclass('Item', Item);
 Parse.Object.registerSubclass('Compensation', Compensation);
 Parse.Object.registerSubclass('Task', Task);
 Parse.Object.registerSubclass('TaskHistoryEvent', TaskHistoryEvent);
+Parse.Object.registerSubclass('OcrData', OcrData);
+Parse.Object.registerSubclass('OcrRating', OcrRating);
+Parse.Object.registerSubclass('RatingSummary', RatingSummary);
 
 
 Parse.Cloud.afterSave(Parse.User, userAfterSave);
@@ -74,6 +83,10 @@ Parse.Cloud.beforeDelete('Task', taskBeforeDelete);
 Parse.Cloud.afterDelete('Task', taskAfterDelete);
 Parse.Cloud.afterSave('TaskHistoryEvent', taskHistoryAfterSave);
 
+Parse.Cloud.beforeSave('OcrRating', ocrRatingBeforeSave);
+Parse.Cloud.afterSave('OcrRating', ocrRatingAfterSave);
+Parse.Cloud.afterSave('RatingSummary', summaryAfterSave);
+
 
 Parse.Cloud.define('pushCompensationRemind', remindComp);
 Parse.Cloud.define('pushTaskRemind', remindTask);
@@ -97,3 +110,5 @@ Parse.Cloud.define('cleanUpIdentities', cleanUpIdentities);
 Parse.Cloud.define('statsSpending', statsSpending);
 Parse.Cloud.define('statsStores', statsStores);
 Parse.Cloud.define('statsCurrencies', statsCurrencies);
+
+Parse.Cloud.define('setOcrRatingUserFromOcrData', setOcrRatingUserFromOcrData);
