@@ -10,6 +10,7 @@ export const AMOUNT = 'amount';
 export const PAID = 'paid';
 
 export default class Compensation extends Parse.Object {
+
     constructor() {
         super(CLASS);
     }

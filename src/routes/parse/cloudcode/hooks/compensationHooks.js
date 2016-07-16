@@ -4,6 +4,7 @@
 
 import {isEqual} from 'lodash';
 import {calculateAndSetBalance, calculateCompensations} from '../balance'
+import {getUserFromIdentity, formatMoney} from '../utils'
 
 export function beforeSave(request, response) {
     const compensation = request.object;
@@ -53,17 +54,23 @@ export function afterSave(request) {
 }
 
 function sendPush(compensation, didCalcNew) {
-    return Parse.Promise.when(compensation.creditor.fetch({useMasterKey: true}), compensation.group.fetch({useMasterKey: true}))
-        .then((creditor, group) => {
-            return Parse.Push.send({
-                channels: [group.id],
+    return Parse.Promise.when(compensation.creditor.fetch({useMasterKey: true}),
+        compensation.group.fetch({useMasterKey: true}), getUserFromIdentity(compensation.debtor))
+        .then((creditor, group, debtorUser) => {
+            const promises = [];
+
+            const debtorQuery = new Parse.Query(Parse.Installation);
+            debtorQuery.equalTo('channels', group.id);
+            debtorQuery.equalTo('user', debtorUser);
+            promises.push(Parse.Push.send({
+                where: debtorQuery,
                 data: {
                     type: "compensationExistingPaid",
                     "content-available": 1,
                     sound: "default",
                     alert: {
                         "loc-key": "locKey.compensationSetPaid",
-                        "loc-args": [creditor.nickname, compensation.amount]
+                        "loc-args": [creditor.nickname, formatMoney(compensation.amount, compensation.group.currency)]
                     },
                     compensationId: compensation.id,
                     user: creditor.nickname,
@@ -74,6 +81,27 @@ function sendPush(compensation, didCalcNew) {
                     amount: compensation.amount,
                     didCalcNew: didCalcNew
                 }
-            }, {useMasterKey: true});
+            }, {useMasterKey: true}));
+
+            const groupQuery = new Parse.Query(Parse.Installation);
+            groupQuery.equalTo('channels', group.id);
+            groupQuery.notEqualTo('user', debtorUser);
+            promises.push(Parse.Push.send({
+                where: groupQuery,
+                data: {
+                    type: "compensationExistingPaid",
+                    "content-available": 1,
+                    compensationId: compensation.id,
+                    user: creditor.nickname,
+                    debtorId: compensation.debtor.id,
+                    creditorId: creditor.id,
+                    groupId: group.id,
+                    currencyCode: compensation.group.currency,
+                    amount: compensation.amount,
+                    didCalcNew: didCalcNew
+                }
+            }, {useMasterKey: true}));
+            
+            return Parse.Promise.when(promises);
         })
 }

@@ -4,7 +4,7 @@
 
 import {includes} from 'lodash';
 import {calculateAndSetBalance, calculateCompensations} from '../balance';
-import {deleteParseFile, getUserFromIdentity} from '../utils'
+import {deleteParseFile, getUserFromIdentity, formatMoney} from '../utils'
 
 export function beforeSave(request, response) {
     const purchase = request.object;
@@ -138,7 +138,7 @@ function sendPushNewPurchase(purchase, identities, identitiesIds) {
                     sound: "default",
                     alert: {
                         "loc-key": "locKey.purchaseNew",
-                        "loc-args": [buyer.nickname, totalPrice, purchase.store]
+                        "loc-args": [buyer.nickname, formatMoney(totalPrice, group.currency), purchase.store]
                     },
                     currencyCode: group.currency,
                     purchaseId: purchase.id,
