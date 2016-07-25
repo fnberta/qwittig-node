@@ -6,10 +6,12 @@ export const CLASS = 'RatingSummary';
 export const USER = 'user';
 export const USERNAME = 'username';
 export const SATISFACTION = 'satisfaction';
+export const SATISFACTION_COUNT = 'satisfactionCount';
 export const NAMES = 'names';
 export const PRICES = 'prices';
 export const MISSING_ARTICLES = 'missingArticles';
 export const SPEED = 'speed';
+export const IMPROVEMENT_COUNT = 'improvementCount';
 
 export default class RatingSummary extends Parse.Object {
     constructor() {
@@ -38,6 +40,14 @@ export default class RatingSummary extends Parse.Object {
 
     set satisfaction(satisfaction) {
         this.set(SATISFACTION, satisfaction);
+    }
+
+    get satisfactionCount() {
+        return this.get(SATISFACTION_COUNT);
+    }
+
+    set satisfactionCount(satisfactionCount) {
+        this.set(SATISFACTION_COUNT, satisfactionCount);
     }
 
     get names() {
@@ -70,5 +80,13 @@ export default class RatingSummary extends Parse.Object {
 
     set speed(speed) {
         this.set(SPEED, speed);
+    }
+
+    get improvementCount() {
+        return this.get(IMPROVEMENT_COUNT);
+    }
+
+    set improvementCount(improvementCoujt) {
+        this.set(IMPROVEMENT_COUNT, improvementCoujt);
     }
 }

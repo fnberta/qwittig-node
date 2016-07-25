@@ -9,20 +9,19 @@ export function beforeSave(request, response) {
         return;
     }
 
-    addUserFromOcrData(ocrRating)
-        .then(() => response.success())
+    fetchOcrData(ocrRating)
+        .then(ocrData => {
+            ocrRating.user = ocrData.user;
+            response.success()
+        })
         .catch(err => {
             console.error('Failed to add user from ocrData with error: ' + err);
             response.error('Failed to add user from ocrData with error: ' + err.message)
         });
 }
 
-function addUserFromOcrData(ocrRating) {
-    return ocrRating.ocrData.fetch({useMasterKey: true})
-        .then(ocrData => {
-            ocrRating.user = ocrData.user;
-            return ocrRating.save(null, {useMasterKey: true});
-        })
+function fetchOcrData(ocrRating) {
+    return ocrRating.ocrData.fetch({useMasterKey: true});
 }
 
 export function afterSave(request) {
@@ -80,11 +79,24 @@ function saveRatingSummary(user, ocrRatings) {
                     spCount++;
                 }
             }
-            ratingSummary.satisfaction = saCount > 0 ? satisfaction / saCount : 0;
-            ratingSummary.names = naCount > 0 ? names / naCount : 0;
+            if (saCount > 0) {
+                ratingSummary.satisfaction = satisfaction / saCount;
+                ratingSummary.satisfactionCount = saCount;
+            } else {
+                ratingSummary.satisfaction = 0;
+                ratingSummary.satisfactionCount = 0;
+            }
+            if (naCount > 0) {
+                ratingSummary.names = names / naCount;
+                ratingSummary.improvementCount = naCount;
+            } else {
+                ratingSummary.names = 0;
+                ratingSummary.improvementCount = 0;
+            }
             ratingSummary.prices = prCount > 0 ? prices / prCount : 0;
             ratingSummary.missingArticles = miCount > 0 ? missingArticles / miCount : 0;
             ratingSummary.speed = spCount > 0 ? speed / spCount : 0;
+
 
             return ratingSummary.save(null, {useMasterKey: true});
         });

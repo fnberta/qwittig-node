@@ -51,8 +51,20 @@ function calcOverallAverage(ocrRatings) {
                 overallRating = new RatingSummary();
                 overallRating.username = 'OVERALL_AVERAGE';
             }
-            overallRating.satisfaction = saCount > 0 ? satisfaction / saCount : 0;
-            overallRating.names = naCount > 0 ? names / naCount : 0;
+            if (saCount > 0) {
+                overallRating.satisfaction = satisfaction / saCount;
+                overallRating.satisfactionCount = saCount;
+            } else {
+                overallRating.satisfaction = 0;
+                overallRating.satisfactionCount = 0;
+            }
+            if (naCount > 0) {
+                overallRating.names = names / naCount;
+                overallRating.improvementCount = naCount;
+            } else {
+                overallRating.names = 0;
+                overallRating.improvementCount = 0;
+            }
             overallRating.prices = prCount > 0 ? prices / prCount : 0;
             overallRating.missingArticles = miCount > 0 ? missingArticles / miCount : 0;
             overallRating.speed = spCount > 0 ? speed / spCount : 0;
