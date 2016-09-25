@@ -11,8 +11,6 @@ import pushQueue from './firebase/queues/pushQueue';
 import ocrQueue from './firebase/queues/ocrQueue';
 
 const port = normalizePort(process.env.PORT || '4000');
-app.set('port', port);
-
 const server = app.listen(port);
 server.on('listening', () => {
   const address = server.address();
