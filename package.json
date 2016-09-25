@@ -1,18 +1,18 @@
 {
-  "name": "Node",
-  "version": "0.0.0",
+  "name": "qwittig-backend",
+  "version": "0.0.1",
   "engines": {
     "node": ">=6.0.0"
   },
+  "main": "server.js",
   "private": true,
   "scripts": {
     "dev": "DEBUG=* VERBOSE=1 babel-node src/server.js",
     "build": "rm -rf build && mkdir build && babel src -d build",
     "production": "pm2 startOrRestart process.json --env production",
-    "deploy": "bash deploy.sh",
-    "dev:mongodb": "mongod --config /usr/local/etc/mongod.conf",
-    "dev:dashboard-local": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'http://localhost:3000/api/data' --appName 'Qwittig'",
-    "dev:dashboard-remote": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'https://qwittig.com/api/data' --appName 'Qwittig'"
+    "start": "node build/server.js",
+    "deploy:netcup": "bash deploy.sh",
+    "deploy:google": "npm run build && gcloud app deploy --project qwittig-6fb93"
   },
   "dependencies": {
     "body-parser": "^1.15.2",

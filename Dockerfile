@@ -1,59 +1,53 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 
-RUN \
-    apt-get update -y && apt-get install --no-install-recommends -y -q  \
+RUN apt-get update -y && apt-get install --no-install-recommends -y -q  \
     curl \
-    python \ 
-    build-essential \ 
-    ca-certificates \
-    cmake \
-    pkg-config \
-    libjpeg8-dev \
-    libtiff4-dev \
-    libjasper-dev \
-    libpng12-dev \
-    python-dev \
-    python-numpy \
-    python-skimage \
     git \
     wget \
     unzip \
-    tesseract-ocr \
-    tesseract-ocr-deu
+    python \
+    ca-certificates \
+    build-essential \
+    cmake \
+    pkg-config \
+    libjpeg-dev \
+    libtiff-dev \
+    libjasper-dev \
+    libpng-dev \
+    python-dev \
+    python-numpy \
+    python-skimage \
+    tesseract-ocr
 
-   
-## Install OpenCV 
-WORKDIR /opt/opencv
+## Install OpenCV
+WORKDIR /tmp/opencv
 RUN wget https://github.com/Itseez/opencv/archive/3.1.0.zip
 RUN unzip 3.1.0.zip
-  
-WORKDIR /opt/opencv/opencv-3.0.0
-RUN \
-    mkdir build \
-    cd build \
-    cmake .. \
-    make \
-    make install \
-    make clean
+
+WORKDIR /tmp/opencv/opencv-3.1.0/build
+RUN cmake ..
+RUN make && make install && make clean
 
 RUN sh -c 'echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf'
 RUN ldconfig
 
-## Install MongoDb
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
-RUN echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.2 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.2.list
-RUN apt-get update && apt-get install -y mongodb-org
-
 ## Install Node.js
-RUN curl --silent --location https://deb.nodesource.com/setup_6.x | bash -
-RUN apt-get install -y nodejs
+RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
+RUN apt-get update -y && apt-get install -y -q \
+    nodejs
 
 WORKDIR /opt/node
 COPY package.json /opt/node/
-RUN npm install
-COPY . /opt/node
+COPY build /opt/node/build/
+COPY cert /opt/node/cert/
+COPY bin /opt/node/bin/
 
-EXPOSE 3000
+ENV NODE_ENV production
+RUN npm install --quiet --production
+
+## Start node.js app on port 8080
+ENV PORT 8080
+EXPOSE 8080
 CMD [ "npm", "start" ]
 
 
