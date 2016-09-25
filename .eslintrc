@@ -1,0 +1,26 @@
+{
+  "extends": "airbnb",
+  "env": {
+    "es6": true,
+    "node": true,
+    "browser": false
+  },
+  "rules": {
+    "no-console": "off",
+    "no-use-before-define": [
+      "error",
+      {
+        "functions": false
+      }
+    ],
+    "max-len": [
+      "error",
+      120,
+      2,
+      {
+        "ignoreUrls": true,
+        "ignoreComments": false
+      }
+    ]
+  }
+}
