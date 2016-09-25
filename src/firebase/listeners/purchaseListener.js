@@ -59,7 +59,7 @@ async function calcBalancesAndComps(purchase) {
 }
 
 async function sendPurchasePush(purchase, purchaseId, titleKey, bodyKey, clickAction) {
-  const identityIds = Object.keys(purchase.identities).filter((identityId) => identityId !== purchase.buyer);
+  const identityIds = Object.keys(purchase.identities).filter(identityId => identityId !== purchase.buyer);
   const userTokens = [];
   for (const identityId of identityIds) {
     const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();

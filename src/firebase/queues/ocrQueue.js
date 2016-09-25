@@ -22,7 +22,7 @@ export default function startOcrQueue() {
   const queue = new Queue(ref, (data, progress, resolve, reject) => {
     handleOcr(data)
       .then(() => resolve())
-      .catch((err) => reject(err));
+      .catch(err => reject(err));
   });
 }
 

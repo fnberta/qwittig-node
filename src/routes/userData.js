@@ -22,7 +22,7 @@ router.post('/delete', jsonParser, (req, res, next) => {
 
   handleUserDataDeletion(idToken)
     .then(() => res.sendStatus(200))
-    .catch((err) => next(err));
+    .catch(err => next(err));
 });
 
 async function handleUserDataDeletion(idToken) {
@@ -38,7 +38,7 @@ async function deleteUserData(userId) {
   const groupNicknames = {};
 
   // handle identities
-  const identitySnaps = await Promise.all(identityIds.map(((identityId) =>
+  const identitySnaps = await Promise.all(identityIds.map((identityId =>
     db.ref('identities').child('active').child(identityId).once('value'))));
   for (const snap of identitySnaps) {
     const identity = snap.val();
@@ -77,19 +77,19 @@ async function deleteUserData(userId) {
 async function sendPushUserDeleted(groupNicknames) {
   // TODO: once we allow different nicknames for each group, send push for every group with respective nickname
   const nickname = groupNicknames[Object.keys(groupNicknames)[0]];
-  const groups = await Promise.all(Object.keys(groupNicknames).map((groupId) =>
+  const groups = await Promise.all(Object.keys(groupNicknames).map(groupId =>
     db.ref('groups').child(groupId).once('value')
-      .then((snap) => snap.val())
+      .then(snap => snap.val())
   ));
 
   // filter deleted groups
-  const groupsFiltered = groups.filter((group) => group !== null);
+  const groupsFiltered = groups.filter(group => group !== null);
   if (isEmpty(groupsFiltered)) {
     // all groups are deleted, return immediately
     return;
   }
 
-  const identityIds = groupsFiltered.map((group) => Object.keys(group.identities));
+  const identityIds = groupsFiltered.map(group => Object.keys(group.identities));
   const userTokens = [];
   for (const identityId of identityIds) {
     const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();

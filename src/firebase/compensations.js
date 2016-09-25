@@ -20,7 +20,7 @@ async function deleteUnpaidCompensations(groupId) {
   const compsSnap = await compensationsRef.once('value');
   if (compsSnap.hasChildren()) {
     const compIds = compsSnap.val();
-    await Promise.all(Object.keys(compIds).map((compId) =>
+    await Promise.all(Object.keys(compIds).map(compId =>
       db.ref('compensations').child('unpaid').child(compId).remove()));
   }
 }
@@ -106,5 +106,5 @@ function createNewCompensation(group, debtorId, creditorId, amount) {
 }
 
 function saveNewCompensations(compensations) {
-  return Promise.all(compensations.map((comp) => db.ref('compensations').child('unpaid').push().set(comp)));
+  return Promise.all(compensations.map(comp => db.ref('compensations').child('unpaid').push().set(comp)));
 }

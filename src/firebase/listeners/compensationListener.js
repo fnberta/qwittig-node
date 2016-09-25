@@ -55,9 +55,9 @@ async function onPaidChangedOrRemoved(snapshot) {
 async function sendPushPaid(comp) {
   const [debtor, creditor] = await Promise.all([
     db.ref('identities').child('active').child(comp.debtor).once('value')
-      .then((snap) => snap.val()),
+      .then(snap => snap.val()),
     db.ref('identities').child('active').child(comp.creditor).once('value')
-      .then((snap) => snap.val()),
+      .then(snap => snap.val()),
   ]);
 
   if (debtor && debtor.user) {

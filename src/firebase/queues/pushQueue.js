@@ -13,19 +13,19 @@ export default function pushQueue() {
       case 'COMPENSATION_REMIND_DEBTOR': {
         sendCompensationRemindPush(data.compensationId)
           .then(() => resolve())
-          .catch((err) => reject(err));
+          .catch(err => reject(err));
         break;
       }
       case 'ASSIGNMENT_REMIND': {
         sendAssignmentRemindPush(data.assignmentId)
           .then(() => resolve())
-          .catch((err) => reject(err));
+          .catch(err => reject(err));
         break;
       }
       case 'GROUP_JOINED': {
         sendGroupJoinedPush(data.groupId, data.identityId)
           .then(() => resolve())
-          .catch((err) => reject(err));
+          .catch(err => reject(err));
         break;
       }
       default:
@@ -38,9 +38,9 @@ async function sendCompensationRemindPush(compensationId) {
   const comp = (await db.ref('compensations').child('unpaid').child(compensationId).once('value')).val();
   const [debtor, creditor] = await Promise.all([
     db.ref('identities').child('active').child(comp.debtor).once('value')
-      .then((snap) => snap.val()),
+      .then(snap => snap.val()),
     db.ref('identities').child('active').child(comp.creditor).once('value')
-      .then((snap) => snap.val()),
+      .then(snap => snap.val()),
   ]);
   if (debtor.user) {
     const user = (await db.ref('users').child(debtor.user).once('value')).val();

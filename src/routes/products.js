@@ -21,9 +21,9 @@ router.post('/product', jsonParser, (req, res, next) => {
 
   addProducts(products)
     .then(() => res.sendStatus(200))
-    .catch((err) => next(err));
+    .catch(err => next(err));
 });
 
 async function addProducts(products) {
-  await Promise.all(products.map((product) => db.ref('products').push().set(product)));
+  await Promise.all(products.map(product => db.ref('products').push().set(product)));
 }

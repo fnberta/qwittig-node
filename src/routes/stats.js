@@ -29,16 +29,14 @@ router.post('/stats', jsonParser, (req, res, next) => {
   }
 
   handleStatsRequest(idToken, startDate, endDate)
-    .then((stats) => res.json(stats))
-    .catch((err) => next(err));
+    .then(stats => res.json(stats))
+    .catch(err => next(err));
 });
 
 async function handleStatsRequest(idToken, startDate, endDate) {
   const userId = await validateIdToken(idToken);
   const start = moment(startDate).startOf('day');
   const end = moment(endDate).endOf('day');
-  console.log('start', start)
-  console.log('end', end)
   return await calculateStats(userId, start, end);
 }
 

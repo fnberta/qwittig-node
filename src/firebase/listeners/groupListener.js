@@ -40,7 +40,7 @@ async function deleteAllPurchases(groupId) {
   const purchasesSnap = await ref.once('value');
   if (purchasesSnap.hasChildren()) {
     const purchaseIds = purchasesSnap.val();
-    await Promise.all(Object.keys(purchaseIds).map((purchaseId) => db.ref('purchases').child(purchaseId).remove()));
+    await Promise.all(Object.keys(purchaseIds).map(purchaseId => db.ref('purchases').child(purchaseId).remove()));
   }
 }
 
@@ -49,7 +49,7 @@ async function deleteUnpaidCompensations(groupId) {
   const unpaidSnap = await unpaidRef.once('value');
   if (unpaidSnap.hasChildren()) {
     const unpaidCompIds = unpaidSnap.val();
-    await Promise.all(Object.keys(unpaidCompIds).map((compId) =>
+    await Promise.all(Object.keys(unpaidCompIds).map(compId =>
       db.ref('compensations').child('unpaid').child(compId).remove()
     ));
   }
@@ -60,7 +60,7 @@ async function deletePaidCompensations(groupId) {
   const paidSnap = await paidRef.once('value');
   if (paidSnap.hasChildren()) {
     const paidCompIds = paidSnap.val();
-    await Promise.all(Object.keys(paidCompIds).map((compId) =>
+    await Promise.all(Object.keys(paidCompIds).map(compId =>
       db.ref('compensations').child('paid').child(compId).remove()));
   }
 }

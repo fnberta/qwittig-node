@@ -28,7 +28,7 @@ async function deleteOldSummaries(user) {
   const summariesSnap = await ref.once('value');
   if (summariesSnap.hasChildren()) {
     const summaryIds = summariesSnap.val();
-    await Promise.all(Object.keys(summaryIds).map((summaryId) => db.ref('ocrSummaries').child(summaryId).remove()));
+    await Promise.all(Object.keys(summaryIds).map(summaryId => db.ref('ocrSummaries').child(summaryId).remove()));
   }
 }
 
