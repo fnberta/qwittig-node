@@ -1,75 +1,85 @@
 #!/usr/bin/env node
 
-var app = require('./app.js');
-var debug = require('debug')('Node:server');
-var http = require('http');
+import { isString } from 'lodash';
+import app from './app.js';
+import purchaseListener from './firebase/listeners/purchaseListener';
+import compensationListener from './firebase/listeners/compensationListener';
+import groupListener from './firebase/listeners/groupListener';
+import identityListener from './firebase/listeners/identityListener';
+import ocrRatingListener from './firebase/listeners/ocrRatingListener';
+import pushQueue from './firebase/queues/pushQueue';
+import ocrQueue from './firebase/queues/ocrQueue';
+
+const http = require('http');
+const debug = require('debug')('Node:server');
 
 /**
  * Get port from environment and store in Express.
  */
-var port = normalizePort(process.env.PORT || '3000');
+const port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
-
-/**
- * Create HTTP server.
- */
-var server = http.createServer(app);
-
-/**
- * Listen on provided port, on all network interfaces.
- */
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.
  */
 function normalizePort(val) {
-    var port = parseInt(val, 10);
+  const parsedPort = parseInt(val, 10);
 
-    if (isNaN(port)) {
-        // named pipe
-        return val;
-    }
+  if (isNaN(parsedPort)) {
+    // named pipe
+    return val;
+  }
 
-    if (port >= 0) {
-        // port number
-        return port;
-    }
+  if (parsedPort >= 0) {
+    // port number
+    return parsedPort;
+  }
 
-    return false;
+  return false;
 }
 
 /**
- * Event listener for HTTP server "error" event.
+ * Create HTTP server.
  */
-function onError(error) {
-    if (error.syscall !== 'listen') {
-        throw error;
-    }
-
-    var bind = typeof port === 'string' ? 'Pipe ' + port : 'Port ' + port;
-    // handle specific listen errors with friendly messages
-    switch (error.code) {
-        case 'EACCES':
-            console.error(bind + ' requires elevated privileges');
-            process.exit(1);
-            break;
-        case 'EADDRINUSE':
-            console.error(bind + ' is already in use');
-            process.exit(1);
-            break;
-        default:
-            throw error;
-    }
-}
+const server = http.createServer(app);
 
 /**
- * Event listener for HTTP server "listening" event.
+ * Listen on provided port, on all network interfaces.
  */
-function onListening() {
-    var addr = server.address();
-    var bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr.port;
-    debug('Listening on ' + bind);
-}
+server.listen(port);
+server.on('error', (err) => {
+  if (err.syscall !== 'listen') {
+    throw err;
+  }
+
+  const bind = isString(port) ? `pipe ${port}` : `Port ${port}`;
+  // handle specific listen errors with friendly messages
+  switch (err.code) {
+    case 'EACCES':
+      console.error(`${bind} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`${bind} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw err;
+  }
+});
+server.on('listening', () => {
+  const address = server.address();
+  const bind = isString(port) ? `pipe ${address}` : `port ${address.port}`;
+  debug(`Listening on ${bind}`);
+});
+
+/**
+ * Start Firebase listeners and queues.
+ */
+purchaseListener();
+compensationListener();
+groupListener();
+identityListener();
+ocrRatingListener();
+pushQueue();
+ocrQueue();

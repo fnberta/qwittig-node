@@ -1,6 +1,9 @@
 {
   "name": "Node",
   "version": "0.0.0",
+  "engines": {
+    "node": ">=6.0.0"
+  },
   "private": true,
   "scripts": {
     "dev": "DEBUG=* VERBOSE=1 babel-node src/server.js",
@@ -12,21 +15,98 @@
     "dev:dashboard-remote": "parse-dashboard --appId 'yLuL6xJB2dUD2hjfh4W2EcZizcPsJZKDgDzbrPji' --masterKey 'TUH97H9EqaRc8O4UGSdwWuY5kiDI9lcxl3n4TQoK' --serverURL 'https://qwittig.com/api/data' --appName 'Qwittig'"
   },
   "dependencies": {
-    "co": "^4.6.0",
+    "body-parser": "^1.15.2",
+    "debug": "latest",
     "express": "^4.14.0",
+    "firebase": "^3.2.1",
+    "firebase-queue": "^1.5.0",
     "fraction.js": "^3.3.1",
-    "lodash": "^4.13.1",
+    "google-cloud": "^0.38.3",
+    "lodash": "^4.14.2",
+    "moment": "^2.14.1",
+    "moment-range": "^2.2.0",
     "morgan": "^1.7.0",
-    "multer": "^1.1.0",
+    "multer": "^1.2.0",
     "mz": "^2.4.0",
-    "parse-server": "^2.2.13",
-    "request-promise": "^3.0.0",
-    "body-parser": "latest"
+    "request": "^2.74.0",
+    "request-promise": "^4.1.1"
   },
   "devDependencies": {
-    "babel-cli": "^6.10.1",
-    "babel-preset-es2015-node6": "^0.2.0",
-    "nodemon": "^1.9.2",
-    "debug": "latest"
+    "babel-cli": "^6.11.4",
+    "babel-eslint": "^6.1.2",
+    "babel-preset-es2015-node6": "^0.3.0",
+    "babel-preset-stage-2": "^6.13.0",
+    "eslint": "^3.2.2",
+    "eslint-config-airbnb": "^10.0.0",
+    "eslint-plugin-babel": "^3.3.0",
+    "eslint-plugin-import": "^1.13.0",
+    "eslint-plugin-jsx-a11y": "^2.1.0",
+    "eslint-plugin-react": "^6.0.0",
+    "nodemon": "^1.10.0"
+  },
+  "eslintConfig": {
+    "extends": "airbnb",
+    "parser": "babel-eslint",
+    "env": {
+      "es6": true,
+      "node": true,
+      "browser": false
+    },
+    "plugins": [
+      "babel"
+    ],
+    "rules": {
+      "no-console": 0,
+      "no-use-before-define": [
+        2,
+        {
+          "functions": false
+        }
+      ],
+      "generator-star-spacing": 0,
+      "new-cap": 0,
+      "array-bracket-spacing": 0,
+      "object-curly-spacing": 0,
+      "object-shorthand": 0,
+      "arrow-parens": 0,
+      "max-len": [
+        2,
+        120,
+        2,
+        {
+          "ignoreUrls": true,
+          "ignoreComments": false
+        }
+      ],
+      "babel/generator-star-spacing": [
+        2,
+        {
+          "before": false,
+          "after": true
+        }
+      ],
+      "babel/new-cap": [
+        2,
+        {
+          "newIsCap": true
+        }
+      ],
+      "babel/array-bracket-spacing": [
+        2,
+        "never"
+      ],
+      "babel/object-curly-spacing": [
+        2,
+        "always"
+      ],
+      "babel/object-shorthand": [
+        2,
+        "always"
+      ],
+      "babel/arrow-parens": 2,
+      "babel/no-await-in-loop": 2,
+      "babel/flow-object-type": 2,
+      "babel/func-params-comma-dangle": 2
+    }
   }
 }
