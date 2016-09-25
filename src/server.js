@@ -10,14 +10,15 @@ import ocrRatingListener from './firebase/listeners/ocrRatingListener';
 import pushQueue from './firebase/queues/pushQueue';
 import ocrQueue from './firebase/queues/ocrQueue';
 
-const http = require('http');
-const debug = require('debug')('Node:server');
-
-/**
- * Get port from environment and store in Express.
- */
 const port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
+
+const server = app.listen(port);
+server.on('listening', () => {
+  const address = server.address();
+  const bind = isString(port) ? `pipe ${address}` : `port ${address.port}`;
+  console.log(`Listening on ${bind}`);
+});
 
 /**
  * Normalize a port into a number, string, or false.
@@ -37,41 +38,6 @@ function normalizePort(val) {
 
   return false;
 }
-
-/**
- * Create HTTP server.
- */
-const server = http.createServer(app);
-
-/**
- * Listen on provided port, on all network interfaces.
- */
-server.listen(port);
-server.on('error', (err) => {
-  if (err.syscall !== 'listen') {
-    throw err;
-  }
-
-  const bind = isString(port) ? `pipe ${port}` : `Port ${port}`;
-  // handle specific listen errors with friendly messages
-  switch (err.code) {
-    case 'EACCES':
-      console.error(`${bind} requires elevated privileges`);
-      process.exit(1);
-      break;
-    case 'EADDRINUSE':
-      console.error(`${bind} is already in use`);
-      process.exit(1);
-      break;
-    default:
-      throw err;
-  }
-});
-server.on('listening', () => {
-  const address = server.address();
-  const bind = isString(port) ? `pipe ${address}` : `port ${address.port}`;
-  debug(`Listening on ${bind}`);
-});
 
 /**
  * Start Firebase listeners and queues.
