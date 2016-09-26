@@ -44,5 +44,6 @@ node_modules
 
 ### Custom ###
 build
+bin/tessdata
 receipts
 cert
