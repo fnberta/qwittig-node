@@ -1,26 +1,16 @@
-/**
- * Created by fabio on 25.07.16.
- */
-
-import { db, sendPush } from '../main';
-import calculateAndSetBalances from '../balances';
+import { db, getUserTokens, sendPush } from '../main';
+import updateBalances from '../balances';
 import calculateCompensations from '../compensations';
 import { formatMoney } from '../../utils';
 
 export default function purchaseListener() {
   const now = new Date().getTime();
   const addRef = db.ref('purchases').orderByChild('createdAt').startAt(now);
-  addRef.on('child_added', (snapshot) => {
-    onAdded(snapshot);
-  });
+  addRef.on('child_added', onAdded);
 
   const ref = db.ref('purchases');
-  ref.on('child_removed', (snapshot) => {
-    onRemoved(snapshot);
-  });
-  ref.on('child_changed', (snapshot) => {
-    onChanged(snapshot);
-  });
+  ref.on('child_removed', onRemoved);
+  ref.on('child_changed', onChanged);
 }
 
 async function onAdded(snapshot) {
@@ -51,7 +41,7 @@ async function calcBalancesAndComps(purchase) {
   }
 
   try {
-    await calculateAndSetBalances(purchase.group, identityIds);
+    await updateBalances(purchase.group, identityIds);
     await calculateCompensations(purchase.group);
   } catch (e) {
     console.error('Failed to calculate balances and compensations with error:', e);
@@ -59,15 +49,8 @@ async function calcBalancesAndComps(purchase) {
 }
 
 async function sendPurchasePush(purchase, purchaseId, titleKey, bodyKey, clickAction) {
-  const identityIds = Object.keys(purchase.identities).filter(identityId => identityId !== purchase.buyer);
-  const userTokens = [];
-  for (const identityId of identityIds) {
-    const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();
-    if (identity.user) {
-      const user = (await db.ref('users').child(identity.user).once('value')).val();
-      userTokens.push(...Object.keys(user.tokens));
-    }
-  }
+  const identityIds = Object.keys(purchase.identities).filter(id => id !== purchase.buyer);
+  const userTokens = await getUserTokens(identityIds);
   const buyer = (await db.ref('identities').child('active').child(purchase.buyer).once('value')).val();
   const data = {
     purchaseId,

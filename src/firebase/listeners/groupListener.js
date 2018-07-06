@@ -6,12 +6,8 @@ import { db } from '../main';
 
 export default function groupListener() {
   const ref = db.ref('groups');
-  ref.on('child_changed', (snapshot) => {
-    onGroupChanged(snapshot);
-  });
-  ref.on('child_removed', (snapshot) => {
-    onGroupRemoved(snapshot);
-  });
+  ref.on('child_changed', onGroupChanged);
+  ref.on('child_removed', onGroupRemoved);
 }
 
 async function onGroupChanged(snapshot) {

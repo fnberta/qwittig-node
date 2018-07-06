@@ -1,9 +1,5 @@
-/**
- * Created by fabio on 25.07.16.
- */
-
 import Queue from 'firebase-queue';
-import { db, sendPush } from '../main';
+import { db, sendPush, getUserTokens } from '../main';
 import { formatMoney } from '../../utils';
 
 export default function pushQueue() {
@@ -66,16 +62,7 @@ async function sendCompensationRemindPush(compensationId) {
 
 async function sendAssignmentRemindPush(assignmentId) {
   const assignment = (await db.ref('assignments').child(assignmentId).once('value')).val();
-  const identityIds = Object.keys(assignment.identities);
-
-  let identityIdRes;
-  for (const identityId of identityIds) {
-    if (assignment.identities[identityId] === 0) {
-      identityIdRes = identityId;
-      break;
-    }
-  }
-
+  const identityIdRes = Object.keys(assignment.identities).find(id => assignment.identities[id] === 0);
   if (identityIdRes) {
     const identityRes = (await db.ref('identities').child('active').child(identityIdRes).once('value')).val();
     if (identityRes.user) {
@@ -100,18 +87,8 @@ async function sendAssignmentRemindPush(assignmentId) {
 
 async function sendGroupJoinedPush(groupId, joiningIdentityId) {
   const group = (await db.ref('groups').child(groupId).once('value')).val();
-  const identityIds = Object.keys(group.identities);
-  const userTokens = [];
-  for (const identityId of identityIds) {
-    if (identityId !== joiningIdentityId) {
-      const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();
-      if (identity.user) {
-        const user = (await db.ref('users').child(identity.user).once('value')).val();
-        userTokens.push(...Object.keys(user.tokens));
-      }
-    }
-  }
-
+  const identityIds = Object.keys(group.identities).filter(id => id !== joiningIdentityId);
+  const userTokens = await getUserTokens(identityIds);
   const joiningIdentity = (await db.ref('identities').child('active').child(joiningIdentityId).once('value')).val();
   const data = {
     type: 'GROUP_JOINED',

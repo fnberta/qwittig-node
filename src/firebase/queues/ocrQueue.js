@@ -1,14 +1,10 @@
-/**
- * Created by fabio on 25.07.16.
- */
-
 import Queue from 'firebase-queue';
 import path from 'path';
-import { isEmpty } from 'lodash';
-import { db, TIMESTAMP, sendPush, sendDataPush } from '../main';
+import { isEmpty } from 'ramda';
+import { unlink, writeFile } from 'mz/fs';
+import { execFile } from 'mz/child_process';
+import { db, sendDataPush, sendPush, TIMESTAMP } from '../main';
 
-const fs = require('mz/fs');
-const execFile = require('mz/child_process').execFile;
 const gcloud = require('google-cloud')({
   projectId: 'qwittig-6fb93',
   keyFilename: path.resolve(__dirname, '../../../cert/qwittig-314610931f3b.json'),
@@ -33,7 +29,7 @@ async function handleOcr(data) {
     const ocrData = await performOcr(receiptPath);
     await uploadReceipt(receiptPath, purchaseId);
     const ocrDataId = await saveOcrData(ocrData, purchaseId, data.userId);
-    await fs.unlink(receiptPath);
+    await unlink(receiptPath);
     await sendPushSuccessful(ocrDataId, purchaseId, data.userId);
   } catch (e) {
     await sendPushFailed(data.userId);
@@ -44,12 +40,12 @@ async function handleOcr(data) {
 async function parseReceipt(receiptString, purchaseId) {
   const fileName = `receipts/${purchaseId}.jpg`;
   const receiptPath = path.resolve(ROOT_PATH, fileName);
-  await fs.writeFile(receiptPath, receiptString, { encoding: 'base64' });
+  await writeFile(receiptPath, receiptString, { encoding: 'base64' });
   return receiptPath;
 }
 
 async function performOcr(receiptPath) {
-  const scriptPath = path.resolve(ROOT_PATH, 'bin/Run.py');
+  const scriptPath = path.resolve(ROOT_PATH, 'bin/scan-qwt.py');
   const args = [receiptPath];
 
   const [stdout, stderr] = await execFile(scriptPath, args, { cwd: path.resolve(ROOT_PATH, 'bin/') });
@@ -71,17 +67,16 @@ function uploadReceipt(receiptPath, purchaseId) {
     destination: remoteFileName,
   };
 
-  return new Promise(
-    (resolve, reject) => {
-      bucket.upload(receiptPath, options, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          const fileName = encodeURIComponent(remoteFileName);
-          resolve(fileName);
-        }
-      });
+  return new Promise((resolve, reject) => {
+    bucket.upload(receiptPath, options, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        const fileName = encodeURIComponent(remoteFileName);
+        resolve(fileName);
+      }
     });
+  });
 }
 
 async function saveOcrData(data, purchaseId, userId) {
@@ -118,7 +113,7 @@ async function sendPushFailed(userId) {
     body_loc_key: 'push_purchase_ocr_failed_alert',
   };
 
-  await sendPush(userTokens, {}, notification);
+  return sendPush(userTokens, {}, notification);
 }
 
 async function getUserTokens(userId) {

@@ -2,12 +2,10 @@
  * Created by fabio on 25.07.16.
  */
 
-import { db, sendPush } from '../main';
+import { db, sendPush, getUserTokens } from '../main';
 
 export default function identityListener() {
-  db.ref('identities').child('active').on('child_removed', (snapshot) => {
-    onActiveIdentityRemoved(snapshot);
-  });
+  db.ref('identities').child('active').on('child_removed', onActiveIdentityRemoved);
 }
 
 async function onActiveIdentityRemoved(snapshot) {
@@ -30,16 +28,7 @@ async function sendPushGroupLeft(inactiveIdentity) {
     return;
   }
 
-  const identityIds = Object.keys(group.identities);
-  const userTokens = [];
-  for (const identityId of identityIds) {
-    const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();
-    if (identity.user) {
-      const user = (await db.ref('users').child(identity.user).once('value')).val();
-      userTokens.push(...Object.keys(user.tokens));
-    }
-  }
-
+  const userTokens = await getUserTokens(Object.keys(group.identities));
   const data = {
     type: 'GROUP_LEFT',
     nickname: inactiveIdentity.nickname,

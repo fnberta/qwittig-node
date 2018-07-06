@@ -1,7 +1,3 @@
-/**
- * Created by fabio on 12.08.16.
- */
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import moment from 'moment';
@@ -37,7 +33,7 @@ async function handleStatsRequest(idToken, startDate, endDate) {
   const userId = await validateIdToken(idToken);
   const start = moment(startDate).startOf('day');
   const end = moment(endDate).endOf('day');
-  return await calculateStats(userId, start, end);
+  return calculateStats(userId, start, end);
 }
 
 async function calculateStats(userId, start, end) {
@@ -92,12 +88,9 @@ async function calculateStats(userId, start, end) {
       const endOfUnit = date.endOf(unit);
 
       if (purchase.identities[currentIdentityId]) {
-        let myShare = 0;
-        for (const article of purchase.articles) {
-          if (article.identities[currentIdentityId]) {
-            myShare += (article.price / size(article.identities));
-          }
-        }
+        const myShare = purchase.articles
+          .filter(article => article.identities[currentIdentityId])
+          .reduce((acc, curr) => acc + (curr.price / size(curr.identities)), 0);
 
         if (myShareByStore[purchase.store]) {
           myShareByStore[purchase.store].myShare += myShare;
@@ -147,13 +140,15 @@ async function calculateStats(userId, start, end) {
 
 function getUnit(start, end) {
   const daysDiff = end.diff(start, 'days');
-  let unit = 'days';
   if (daysDiff > 31 && daysDiff < 365) {
-    unit = 'months';
-  } else if (daysDiff > 365) {
-    unit = 'years';
+    return 'months';
   }
-  return unit;
+
+  if (daysDiff > 365) {
+    return 'years';
+  }
+
+  return 'days';
 }
 
 function getInitialDateResult(start, end, unit) {

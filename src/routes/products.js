@@ -1,7 +1,3 @@
-/**
- * Created by fabio on 10.05.16.
- */
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import { db } from '../firebase/main';

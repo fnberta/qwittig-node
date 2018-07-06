@@ -3,6 +3,7 @@
     {
       "name": "qwittig2-node",
       "script": "build/server.js",
+      "interpreter_args": "--harmony_async_await",
       "watch": false,
       "env": {
         "NODE_ENV": "development",

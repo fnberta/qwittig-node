@@ -1,11 +1,8 @@
-/**
- * Created by fabio on 25.07.16.
- */
-
 import express from 'express';
 import bodyParser from 'body-parser';
-import { includes, isEmpty } from 'lodash';
-import { db, TIMESTAMP, sendPush, validateIdToken } from '../firebase/main';
+import Rx from 'rxjs';
+import { assocPath, compose } from 'ramda';
+import { db, getUserTokens, sendPush, TIMESTAMP, validateIdToken } from '../firebase/main';
 
 const jsonParser = bodyParser.json();
 const router = express.Router(); // eslint-disable-line babel/new-cap
@@ -34,81 +31,85 @@ async function handleUserDataDeletion(idToken) {
 async function deleteUserData(userId) {
   const user = (await db.ref('users').child(userId).once('value')).val();
   const identityIds = Object.keys(user.identities);
-  const updates = {};
-  const groupNicknames = {};
-
-  // handle identities
   const identitySnaps = await Promise.all(identityIds.map((identityId =>
     db.ref('identities').child('active').child(identityId).once('value'))));
-  for (const snap of identitySnaps) {
-    const identity = snap.val();
-    groupNicknames[identity.group] = identity.nickname;
-
-    identity.createdAt = TIMESTAMP;
-    identity.active = false;
-    identity.user = null;
-    updates[`identities/active/${snap.key}`] = null;
-    updates[`identities/inactive/${snap.key}`] = identity;
-    updates[`groups/${identity.group}/identities/${snap.key}`] = null;
-  }
-
-  // handle compensations
   const compsSnap = await db.ref('compensations').child('unpaid').once('value');
-  compsSnap.forEach((child) => {
-    const comp = child.val();
-    if (includes(identityIds, comp.debtor) || includes(identityIds, comp.creditor)) {
-      comp.paid = true;
-      comp.createdAt = TIMESTAMP;
-      updates[`compensations/unpaid/${child.key}`] = null;
-      updates[`compensations/paid/${child.key}`] = comp;
-    }
-  });
 
-  // delete user
-  updates[`users/${userId}`] = null;
+  const initial = {
+    updates: {
+      [`users/${userId}`]: null,
+    },
+    groupNicknames: {},
+  };
+  const result = getCompensationUpdates(compsSnap, identityIds, getIdentityUpdates(identitySnaps, initial));
 
   // perform operations atomically
-  await db.ref().update(updates);
+  await db.ref().update(result.updates);
 
   // return groupIds and nicknames to send push
-  return groupNicknames;
+  return result.groupNicknames;
+}
+
+function getIdentityUpdates(identitySnaps, updates) {
+  return identitySnaps
+    .reduce((acc, curr) => {
+      const identity = curr.val();
+      const add = compose(
+        assocPath(['updates', `groups/${identity.group}/identities/${curr.key}`], null),
+        assocPath(['updates', `identities/inactive/${curr.key}`], {
+          ...identity,
+          createdAt: TIMESTAMP,
+          isActive: false,
+          user: null,
+        }),
+        assocPath(['updates', `identities/active/${curr.key}`], null),
+        assocPath(['groupNicknames', identity.group], identity.nickname),
+      );
+
+      return add(acc);
+    }, updates);
+}
+
+function getCompensationUpdates(compsSnap, identityIds, updates) {
+  return Object.values(compsSnap.val())
+    .filter(([_, comp]) => identityIds.includes(comp.debtor) || identityIds.includes(comp.creditor))
+    .reduce((acc, [key, comp]) => {
+      const add = compose(
+        assocPath(['updates', `compensations/paid/${key}`], {
+          ...comp,
+          isPaid: true,
+          createdAt: TIMESTAMP,
+        }),
+        assocPath(['updates', `compensations/unpaid/${key}`], null),
+      );
+
+      return add(acc);
+    }, updates);
 }
 
 async function sendPushUserDeleted(groupNicknames) {
   // TODO: once we allow different nicknames for each group, send push for every group with respective nickname
   const nickname = groupNicknames[Object.keys(groupNicknames)[0]];
-  const groups = await Promise.all(Object.keys(groupNicknames).map(groupId =>
-    db.ref('groups').child(groupId).once('value')
-      .then(snap => snap.val())
-  ));
+  return Rx.Observable.from(Object.keys(groupNicknames))
+    .mergeMap(groupId => db.ref('groups').child(groupId).once('value'))
+    .map(snap => snap.val())
+    .filter(group => group)
+    .mergeMap(group => Rx.Observable.from(Object.keys(group.identities)))
+    .toArray()
+    .mergeMap(identityIds => getUserTokens(identityIds))
+    .mergeMap((userTokens) => {
+      const data = {
+        type: 'USER_DELETED',
+        nickname,
+      };
 
-  // filter deleted groups
-  const groupsFiltered = groups.filter(group => group !== null);
-  if (isEmpty(groupsFiltered)) {
-    // all groups are deleted, return immediately
-    return;
-  }
+      const notification = {
+        title_loc_key: 'push_user_deleted_title',
+        title_loc_args: [nickname],
+        body_loc_key: 'push_user_deleted_alert',
+      };
 
-  const identityIds = groupsFiltered.map(group => Object.keys(group.identities));
-  const userTokens = [];
-  for (const identityId of identityIds) {
-    const identity = (await db.ref('identities').child('active').child(identityId).once('value')).val();
-    if (identity.user) {
-      const user = (await db.ref('users').child(identity.user).once('value')).val();
-      userTokens.push(...Object.keys(user.tokens));
-    }
-  }
-
-  const data = {
-    type: 'USER_DELETED',
-    nickname,
-  };
-
-  const notification = {
-    title_loc_key: 'push_user_deleted_title',
-    title_loc_args: [nickname],
-    body_loc_key: 'push_user_deleted_alert',
-  };
-
-  await sendPush(userTokens, data, notification);
+      return sendPush(userTokens, data, notification);
+    })
+    .toPromise();
 }

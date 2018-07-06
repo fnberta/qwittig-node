@@ -1,9 +1,5 @@
-/**
- * Created by fabio on 25.07.16.
- */
-
 import { db, sendPush } from '../main';
-import calculateAndSetBalances from '../balances';
+import updateBalances from '../balances';
 import calculateCompensations from '../compensations';
 import { formatMoney } from '../../utils';
 
@@ -14,25 +10,19 @@ export default function compensationListener() {
 
 function listenToPaid(now) {
   const addRef = db.ref('compensations').child('paid').orderByChild('createdAt').startAt(now);
-  addRef.on('child_added', (snapshot) => {
-    onPaidAdded(snapshot);
-  });
+  addRef.on('child_added', onPaidAdded);
 
   const ref = db.ref('compensations').child('paid');
-  ref.on('child_removed', (snapshot) => {
-    onPaidChangedOrRemoved(snapshot);
-  });
-  ref.on('child_changed', (snapshot) => {
-    onPaidChangedOrRemoved(snapshot);
-  });
+  ref.on('child_removed', onPaidChangedOrRemoved);
+  ref.on('child_changed', onPaidChangedOrRemoved);
 }
 
 async function onPaidAdded(snapshot) {
   const comp = snapshot.val();
   const identityIds = [comp.creditor, comp.creditor];
   try {
-    await calculateAndSetBalances(comp.group, identityIds);
-    if (comp.amountChanged) {
+    await updateBalances(comp.group, identityIds);
+    if (comp.isAmountChanged) {
       await calculateCompensations(comp.group);
     }
     await sendPushPaid(comp);
@@ -45,7 +35,7 @@ async function onPaidChangedOrRemoved(snapshot) {
   const comp = snapshot.val();
   const identityIds = [comp.creditor, comp.creditor];
   try {
-    await calculateAndSetBalances(comp.group, identityIds);
+    await updateBalances(comp.group, identityIds);
     await calculateCompensations(comp.group);
   } catch (e) {
     console.error('Failed to calculate balances with error:', e);
